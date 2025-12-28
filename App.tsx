@@ -416,30 +416,34 @@ export default function App() {
   // 스크롤을 최하단으로 이동하는 함수 (iOS 호환)
   const scrollChatToBottom = React.useCallback((force: boolean = false) => {
     const doScroll = () => {
-      // 방법 1: chat-end-marker로 스크롤 (iOS에서 가장 잘 작동)
-      const chatEnd = document.getElementById('chat-end-marker');
-      if (chatEnd) {
-        chatEnd.scrollIntoView({ behavior: 'instant', block: 'end' });
-      }
+      try {
+        // 방법 1: 마커 요소의 offsetTop 사용 (iOS에서 가장 확실)
+        const chatEnd = document.getElementById('chat-end-marker');
+        const container = document.getElementById('chat-scroll-container');
 
-      // 방법 2: 컨테이너 직접 스크롤
-      const container = document.getElementById('chat-scroll-container');
-      if (container) {
-        container.scrollTop = container.scrollHeight + 1000;
+        if (container && chatEnd) {
+          // iOS Safari: offsetTop 기반 스크롤
+          const targetScroll = chatEnd.offsetTop;
+          container.scrollTop = targetScroll;
+
+          // 백업: scrollIntoView
+          chatEnd.scrollIntoView(false);
+        } else if (container) {
+          container.scrollTop = container.scrollHeight;
+        }
+      } catch (e) {
+        // 에러 무시
       }
     };
 
+    // 즉시 실행 + 여러 번 재시도
+    doScroll();
+    setTimeout(doScroll, 100);
+    setTimeout(doScroll, 300);
     if (force) {
-      // 강제 스크롤: 여러 번 시도
-      requestAnimationFrame(doScroll);
-      setTimeout(doScroll, 50);
-      setTimeout(doScroll, 150);
-      setTimeout(doScroll, 300);
-      setTimeout(doScroll, 600);
-      setTimeout(doScroll, 1000);
-    } else {
-      requestAnimationFrame(doScroll);
-      setTimeout(doScroll, 100);
+      setTimeout(doScroll, 500);
+      setTimeout(doScroll, 800);
+      setTimeout(doScroll, 1200);
     }
   }, []);
 
