@@ -381,6 +381,16 @@ export default function App() {
     if (viewId === GameView.HOME) {
       setTimeout(() => scrollChatToBottom(true), 100);
     }
+
+    // 상점, 강화 탭 클릭 시 스크롤 최상단으로
+    if (viewId === GameView.SHOP || viewId === GameView.ENHANCE) {
+      setTimeout(() => {
+        const container = chatContainerRef.current;
+        if (container) {
+          container.scrollTop = 0;
+        }
+      }, 100);
+    }
   };
 
   // Firebase 설정 확인
