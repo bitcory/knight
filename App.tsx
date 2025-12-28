@@ -418,21 +418,12 @@ export default function App() {
     const doScroll = () => {
       const chatEnd = document.getElementById('chat-end-marker');
       const container = document.getElementById('chat-scroll-container');
-      if (chatEnd) {
-        chatEnd.scrollIntoView({ behavior: 'auto', block: 'end' });
-      }
       if (container) {
         container.scrollTop = container.scrollHeight;
       }
-      // 스크롤 후 위치 체크
-      setTimeout(() => {
-        const c = document.getElementById('chat-scroll-container');
-        if (c) {
-          const threshold = 100;
-          const isBottom = c.scrollHeight - c.scrollTop - c.clientHeight < threshold;
-          setIsAtBottom(isBottom);
-        }
-      }, 50);
+      if (chatEnd) {
+        chatEnd.scrollIntoView({ behavior: 'auto', block: 'end' });
+      }
     };
 
     if (force) {
@@ -481,8 +472,17 @@ export default function App() {
   const checkScrollPosition = React.useCallback(() => {
     const container = document.getElementById('chat-scroll-container');
     if (!container) return;
-    const threshold = 100;
-    const isBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+
+    // 컨테이너에 스크롤이 있는지 확인
+    const hasScroll = container.scrollHeight > container.clientHeight + 50;
+    if (!hasScroll) {
+      setIsAtBottom(true); // 스크롤이 없으면 맨 아래로 간주
+      return;
+    }
+
+    const threshold = 150;
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    const isBottom = distanceFromBottom < threshold;
     setIsAtBottom(isBottom);
   }, []);
 
@@ -490,18 +490,16 @@ export default function App() {
     const container = document.getElementById('chat-scroll-container');
     if (!container) return;
 
-    // 초기 체크
-    checkScrollPosition();
-
     // 스크롤 이벤트 리스너
     container.addEventListener('scroll', checkScrollPosition);
     return () => container.removeEventListener('scroll', checkScrollPosition);
   }, [view, checkScrollPosition]);
 
-  // 메시지 로드 후 스크롤 위치 체크
+  // 메시지 로드 후 스크롤 위치 체크 (지연)
   useEffect(() => {
     if (globalMessages.length > 0) {
-      setTimeout(checkScrollPosition, 200);
+      setTimeout(checkScrollPosition, 500);
+      setTimeout(checkScrollPosition, 1000);
     }
   }, [globalMessages.length, checkScrollPosition]);
 
