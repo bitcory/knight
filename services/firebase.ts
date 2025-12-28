@@ -116,6 +116,30 @@ export const saveGameData = async (uid: string, stats: PlayerStats, weapon: Weap
   }, { merge: true });
 };
 
+// 관리자 골드 선물 함수
+export const giftGoldToUser = async (targetUid: string, goldAmount: number): Promise<boolean> => {
+  try {
+    const gameData = await getGameData(targetUid);
+    if (!gameData) return false;
+
+    const updatedStats = {
+      ...gameData.stats,
+      gold: (gameData.stats.gold || 0) + goldAmount
+    };
+
+    await setDoc(doc(db, 'gameData', targetUid), {
+      ...gameData,
+      stats: updatedStats,
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+
+    return true;
+  } catch (error) {
+    console.error('Gift gold error:', error);
+    return false;
+  }
+};
+
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   const snapshot = await getDocs(collection(db, 'users'));
   return snapshot.docs.map(doc => doc.data() as UserProfile);

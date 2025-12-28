@@ -58,6 +58,7 @@ import {
   isFirebaseConfigured,
   getAllUsers,
   getAllGameData,
+  giftGoldToUser,
   GlobalChatMessage,
   UserProfile
 } from './services/firebase';
@@ -83,6 +84,9 @@ const INITIAL_WEAPON: Weapon = {
 };
 
 const SCROLL_PRICE = 100000; // 강화 주문서 가격 (성공 확률 +20%)
+
+// 관리자 이메일
+const ADMIN_EMAILS = ['ggamsire@gmail.com'];
 
 // 무기 상성 시스템
 // 검 > 창 (검으로 창을 쳐내고 접근)
@@ -341,6 +345,11 @@ export default function App() {
   const [selectedOpponent, setSelectedOpponent] = useState<{ profile: UserProfile, gameData: any } | null>(null);
   const [isLoadingOpponents, setIsLoadingOpponents] = useState(false);
   const MAX_DAILY_BATTLES = 20;
+
+  // 관리자 골드 선물 State
+  const [giftGoldAmount, setGiftGoldAmount] = useState<string>('');
+  const [showGiftModal, setShowGiftModal] = useState<{ profile: UserProfile, gameData: any } | null>(null);
+  const isAdmin = ADMIN_EMAILS.includes(firebaseUser?.email || '');
 
   // 출석체크 State
   const [showAttendancePopup, setShowAttendancePopup] = useState(false);
@@ -1827,35 +1836,51 @@ export default function App() {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-1 justify-end flex-wrap">
-                          {/* 무기 상성 */}
-                          {typeAdv === 'advantage' && (
-                            <span className="text-[9px] px-1 py-0.5 bg-green-500/20 text-green-400 rounded border border-green-500/30">
-                              무기↑
+                      <div className="text-right flex items-center gap-2">
+                        {/* 관리자용 선물 버튼 */}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowGiftModal(opp);
+                              setGiftGoldAmount('');
+                            }}
+                            className="w-8 h-8 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg flex items-center justify-center active:scale-95 transition-all border border-yellow-500/30"
+                            title="골드 선물"
+                          >
+                            <Gift size={16} />
+                          </button>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-1 justify-end flex-wrap">
+                            {/* 무기 상성 */}
+                            {typeAdv === 'advantage' && (
+                              <span className="text-[9px] px-1 py-0.5 bg-green-500/20 text-green-400 rounded border border-green-500/30">
+                                무기↑
+                              </span>
+                            )}
+                            {typeAdv === 'disadvantage' && (
+                              <span className="text-[9px] px-1 py-0.5 bg-red-500/20 text-red-400 rounded border border-red-500/30">
+                                무기↓
+                              </span>
+                            )}
+                            {/* 속성 상성 */}
+                            {elemAdv === 'advantage' && (
+                              <span className="text-[9px] px-1 py-0.5 bg-cyan-500/20 text-cyan-400 rounded border border-cyan-500/30">
+                                속성↑
+                              </span>
+                            )}
+                            {elemAdv === 'disadvantage' && (
+                              <span className="text-[9px] px-1 py-0.5 bg-purple-500/20 text-purple-400 rounded border border-purple-500/30">
+                                속성↓
+                              </span>
+                            )}
+                            <span className={`text-xs ${powerDiff > 0 ? 'text-green-400' : powerDiff < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                              {powerDiff > 0 ? '유리' : powerDiff < 0 ? '불리' : '동등'}
                             </span>
-                          )}
-                          {typeAdv === 'disadvantage' && (
-                            <span className="text-[9px] px-1 py-0.5 bg-red-500/20 text-red-400 rounded border border-red-500/30">
-                              무기↓
-                            </span>
-                          )}
-                          {/* 속성 상성 */}
-                          {elemAdv === 'advantage' && (
-                            <span className="text-[9px] px-1 py-0.5 bg-cyan-500/20 text-cyan-400 rounded border border-cyan-500/30">
-                              속성↑
-                            </span>
-                          )}
-                          {elemAdv === 'disadvantage' && (
-                            <span className="text-[9px] px-1 py-0.5 bg-purple-500/20 text-purple-400 rounded border border-purple-500/30">
-                              속성↓
-                            </span>
-                          )}
-                          <span className={`text-xs ${powerDiff > 0 ? 'text-green-400' : powerDiff < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                            {powerDiff > 0 ? '유리' : powerDiff < 0 ? '불리' : '동등'}
-                          </span>
+                          </div>
+                          <div className="text-sm font-bold text-slate-300">{oppPower.toLocaleString()}</div>
                         </div>
-                        <div className="text-sm font-bold text-slate-300">{oppPower.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
@@ -2624,6 +2649,85 @@ export default function App() {
             >
               보상 받기
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 관리자 골드 선물 모달 */}
+      {showGiftModal && isAdmin && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowGiftModal(null)}>
+          <div className="w-full max-w-sm animate-fade-in glass-panel p-5 rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <Gift size={24} className="text-yellow-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">골드 선물</h3>
+                <p className="text-sm text-slate-400">{showGiftModal.profile.username}에게 선물</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">선물할 골드</label>
+                <input
+                  type="number"
+                  value={giftGoldAmount}
+                  onChange={(e) => setGiftGoldAmount(e.target.value)}
+                  placeholder="골드 수량 입력"
+                  className="w-full bg-slate-800/80 border border-slate-700 rounded-xl py-3 px-4 text-white placeholder:text-slate-500 focus:outline-none focus:border-yellow-500/50"
+                />
+              </div>
+
+              {/* 빠른 선택 버튼 */}
+              <div className="grid grid-cols-4 gap-2">
+                {[100000, 500000, 1000000, 5000000].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setGiftGoldAmount(amount.toString())}
+                    className="py-2 bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 rounded-lg text-xs font-bold active:scale-95 transition-all"
+                  >
+                    {amount >= 1000000 ? `${amount / 1000000}M` : `${amount / 1000}K`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowGiftModal(null)}
+                  className="flex-1 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold text-sm active:scale-95 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={async () => {
+                    const amount = parseInt(giftGoldAmount);
+                    if (!amount || amount <= 0) {
+                      alert('올바른 골드 수량을 입력해주세요');
+                      return;
+                    }
+                    const success = await giftGoldToUser(showGiftModal.profile.uid, amount);
+                    if (success) {
+                      // 글로벌 메시지로 알림
+                      await sendGlobalMessage({
+                        uid: firebaseUser!.uid,
+                        username: stats.username,
+                        type: 'system',
+                        content: `🎁 ${showGiftModal.profile.username}님에게 ${amount.toLocaleString()}G가 선물되었습니다!`
+                      });
+                      alert(`${showGiftModal.profile.username}님에게 ${amount.toLocaleString()}G를 선물했습니다!`);
+                      setShowGiftModal(null);
+                      loadOpponents(); // 상대 목록 새로고침
+                    } else {
+                      alert('선물에 실패했습니다');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-bold text-sm active:scale-95 transition-all shadow-lg"
+                >
+                  선물하기
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
