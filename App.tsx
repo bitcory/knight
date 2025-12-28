@@ -213,7 +213,9 @@ const getEnhanceConfig = (level: number): EnhancementConfig => {
 // --- Sub-components ---
 
 // 채팅 입력 컴포넌트 (성능 최적화를 위해 분리)
-const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void; userList: string[] }> = React.memo(({ onSubmit, userList }) => {
+const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void; userList: string[]; currentUsername?: string }> = React.memo(({ onSubmit, userList, currentUsername }) => {
+  // 본인 제외한 유저 리스트
+  const otherUsers = currentUsername ? userList.filter(u => u !== currentUsername) : userList;
   const [input, setInput] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownType, setDropdownType] = useState<'mention' | 'whisper'>('mention');
@@ -226,8 +228,8 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
-  // 검색어에 맞는 유저 필터링
-  const filteredUsers = userList.filter(u =>
+  // 검색어에 맞는 유저 필터링 (본인 제외)
+  const filteredUsers = otherUsers.filter(u =>
     u.toLowerCase().includes(searchText.toLowerCase())
   ).slice(0, 5);
 
@@ -420,7 +422,7 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
             />
           </div>
           <div className="max-h-48 overflow-y-auto">
-            {userList
+            {otherUsers
               .filter(u => u.toLowerCase().includes(searchText.toLowerCase()))
               .slice(0, 10)
               .map((user) => (
@@ -435,7 +437,7 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
                 <span>{user}</span>
               </button>
             ))}
-            {userList.filter(u => u.toLowerCase().includes(searchText.toLowerCase())).length === 0 && (
+            {otherUsers.filter(u => u.toLowerCase().includes(searchText.toLowerCase())).length === 0 && (
               <div className="px-4 py-3 text-sm text-slate-500 text-center">
                 검색 결과가 없습니다
               </div>
@@ -3236,7 +3238,7 @@ export default function App() {
 
         {/* Chat Input */}
         <div className="px-4 py-2 border-t border-white/5">
-          <ChatInput onSubmit={handleChatSubmit} userList={allUsernames} />
+          <ChatInput onSubmit={handleChatSubmit} userList={allUsernames} currentUsername={stats.username} />
         </div>
 
         {/* Navigation Bar */}
