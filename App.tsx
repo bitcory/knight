@@ -1893,10 +1893,9 @@ export default function App() {
       </div>
 
       {/* Main Content Area - Scrollable */}
-      <div className="relative flex-1 min-h-0">
-        <div id="chat-scroll-container" ref={chatContainerRef} className="absolute inset-0 overflow-y-auto bg-black">
-          {view === GameView.HOME && (
-            <div className="px-4 py-4">
+      <div id="chat-scroll-container" ref={chatContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden bg-black" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {view === GameView.HOME && (
+          <div className="px-4 py-4 min-h-full">
               {globalMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center py-12">
                   <div className="w-20 h-20 rounded-full bg-slate-800 flex items-center justify-center mb-4">
@@ -1935,8 +1934,6 @@ export default function App() {
               {renderBattle()}
             </div>
           )}
-        </div>
-
       </div>
 
       {/* Scroll to Bottom Button */}
