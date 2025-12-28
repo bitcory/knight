@@ -109,6 +109,12 @@
         padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
       }
 
+      /* iOS Scroll Support */
+      #chat-scroll-container {
+        -webkit-overflow-scrolling: touch;
+        overflow-y: scroll;
+      }
+
       /* Mobile optimizations */
       * {
         -webkit-touch-callout: none;

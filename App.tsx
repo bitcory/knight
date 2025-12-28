@@ -413,27 +413,32 @@ export default function App() {
   // Auto scroll to bottom when messages change
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // 스크롤을 최하단으로 이동하는 함수
+  // 스크롤을 최하단으로 이동하는 함수 (iOS 호환)
   const scrollChatToBottom = React.useCallback((force: boolean = false) => {
     const doScroll = () => {
-      const chatEnd = document.getElementById('chat-end-marker');
       const container = document.getElementById('chat-scroll-container');
       if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
-      if (chatEnd) {
-        chatEnd.scrollIntoView({ behavior: 'auto', block: 'end' });
+        // iOS Safari 호환 스크롤
+        const scrollHeight = container.scrollHeight;
+        container.scrollTo({
+          top: scrollHeight,
+          behavior: 'auto'
+        });
+        // 백업: 직접 scrollTop 설정
+        container.scrollTop = scrollHeight;
       }
     };
 
     if (force) {
       // 강제 스크롤: 여러 번 시도
       doScroll();
-      setTimeout(doScroll, 100);
+      setTimeout(doScroll, 50);
+      setTimeout(doScroll, 150);
       setTimeout(doScroll, 300);
       setTimeout(doScroll, 500);
       setTimeout(doScroll, 1000);
     } else {
+      doScroll();
       setTimeout(doScroll, 100);
     }
   }, []);
