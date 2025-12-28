@@ -980,11 +980,11 @@ export default function App() {
     // 승률 범위 제한 (20% ~ 80%) - 항상 역전 가능성 유지
     winChance = Math.max(0.20, Math.min(0.80, winChance));
 
-    // 🔥 불굴의 투지: 저레벨이 고레벨 상대 시 10% 확률로 발동 (레벨 차이 3~5)
+    // 🔥 불굴의 투지: 저레벨이 고레벨 상대 시 5% 확률로 발동 (레벨 차이 3~5)
     const levelDiff = opponentWeapon.level - weapon.level;
     const isUnderdog = levelDiff >= 3 && levelDiff <= 5; // 레벨 차이 3~5일 때만
     const indomitableRoll = Math.random();
-    const isIndomitableSpirit = isUnderdog && indomitableRoll < 0.10; // 10% 확률
+    const isIndomitableSpirit = isUnderdog && indomitableRoll < 0.05; // 5% 확률
 
     // 승리 판정: 불굴의 투지 발동 시 무조건 승리
     const normalWin = Math.random() < winChance;
