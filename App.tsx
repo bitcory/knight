@@ -1917,7 +1917,7 @@ export default function App() {
               {/* 무기 등급별 이미지 */}
               <div className="mt-4 pt-3 border-t border-slate-700/50">
                 <p className="text-xs text-slate-400 mb-3 text-center">등급별 외형</p>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="space-y-3">
                   {['common', 'rare', 'epic', 'legendary', 'mythic'].map((rarity) => {
                     const rarityNames: Record<string, string> = {
                       common: '일반',
@@ -1927,22 +1927,31 @@ export default function App() {
                       mythic: '신화'
                     };
                     const rarityColors: Record<string, string> = {
-                      common: 'text-slate-400',
-                      rare: 'text-blue-400',
-                      epic: 'text-purple-400',
-                      legendary: 'text-yellow-400',
-                      mythic: 'text-red-400'
+                      common: 'text-slate-400 bg-slate-700/30 border-slate-600',
+                      rare: 'text-blue-400 bg-blue-900/20 border-blue-700/50',
+                      epic: 'text-purple-400 bg-purple-900/20 border-purple-700/50',
+                      legendary: 'text-yellow-400 bg-yellow-900/20 border-yellow-700/50',
+                      mythic: 'text-red-400 bg-red-900/20 border-red-700/50'
                     };
                     return (
-                      <div key={rarity} className="flex flex-col items-center">
-                        <div className="w-12 h-12 bg-slate-700/50 rounded-lg flex items-center justify-center mb-1">
+                      <div key={rarity} className={`flex items-center gap-4 p-3 rounded-xl border ${rarityColors[rarity]}`}>
+                        <div className="w-16 h-16 bg-slate-800/50 rounded-lg flex items-center justify-center">
                           <img
                             src={`/weapons/${showWeaponGuide!.toLowerCase()}_${rarity}.png`}
                             alt={rarityNames[rarity]}
-                            className="w-10 h-10 object-contain"
+                            className="w-14 h-14 object-contain"
                           />
                         </div>
-                        <span className={`text-[10px] font-bold ${rarityColors[rarity]}`}>{rarityNames[rarity]}</span>
+                        <div>
+                          <span className={`font-bold text-sm ${rarityColors[rarity].split(' ')[0]}`}>{rarityNames[rarity]}</span>
+                          <p className="text-xs text-slate-500">
+                            {rarity === 'common' && '+0 ~ +3'}
+                            {rarity === 'rare' && '+4 ~ +7'}
+                            {rarity === 'epic' && '+8 ~ +11'}
+                            {rarity === 'legendary' && '+12 ~ +16'}
+                            {rarity === 'mythic' && '+17 ~ +20'}
+                          </p>
+                        </div>
                       </div>
                     );
                   })}
