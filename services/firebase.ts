@@ -156,9 +156,10 @@ export interface GlobalChatMessage {
   id?: string;
   uid: string;
   username: string;
-  type: 'enhancement' | 'battle' | 'system' | 'chat' | 'showoff';
+  type: 'enhancement' | 'battle' | 'system' | 'chat' | 'showoff' | 'whisper';
   content: string;
   timestamp: Timestamp;
+  whisperTo?: string; // 귓속말 대상 username
   metadata?: {
     success?: boolean;
     weaponLevel?: number;
@@ -198,6 +199,11 @@ export const sendGlobalMessage = async (message: Omit<GlobalChatMessage, 'id' | 
     content: message.content,
     timestamp: serverTimestamp()
   };
+
+  // 귓속말 대상 추가
+  if (message.whisperTo) {
+    cleanedMessage.whisperTo = message.whisperTo;
+  }
 
   const cleanMetadata = removeUndefined(message.metadata);
   if (cleanMetadata && Object.keys(cleanMetadata).length > 0) {

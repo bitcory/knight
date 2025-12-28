@@ -207,32 +207,176 @@ const getEnhanceConfig = (level: number): EnhancementConfig => {
 // --- Sub-components ---
 
 // 채팅 입력 컴포넌트 (성능 최적화를 위해 분리)
-const ChatInput: React.FC<{ onSubmit: (text: string) => void }> = React.memo(({ onSubmit }) => {
+const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void; userList: string[] }> = React.memo(({ onSubmit, userList }) => {
   const [input, setInput] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [dropdownType, setDropdownType] = useState<'mention' | 'whisper'>('mention');
+  const [searchText, setSearchText] = useState('');
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  // 검색어에 맞는 유저 필터링
+  const filteredUsers = userList.filter(u =>
+    u.toLowerCase().includes(searchText.toLowerCase())
+  ).slice(0, 5);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInput(value);
+
+    // / 귓속말 감지 (맨 앞에서 시작하는 경우)
+    if (value.startsWith('/')) {
+      const afterSlash = value.slice(1);
+      const spaceIndex = afterSlash.indexOf(' ');
+      if (spaceIndex === -1) {
+        // 아직 공백이 없으면 유저 선택 중
+        setShowDropdown(true);
+        setDropdownType('whisper');
+        setSearchText(afterSlash);
+        setSelectedIndex(0);
+        return;
+      }
+    }
+
+    // @ 멘션 감지
+    const lastAtIndex = value.lastIndexOf('@');
+    if (lastAtIndex !== -1) {
+      const afterAt = value.slice(lastAtIndex + 1);
+      if (!afterAt.includes(' ')) {
+        setShowDropdown(true);
+        setDropdownType('mention');
+        setSearchText(afterAt);
+        setSelectedIndex(0);
+        return;
+      }
+    }
+
+    setShowDropdown(false);
+  };
+
+  const insertUser = (username: string) => {
+    if (dropdownType === 'whisper') {
+      setInput('/' + username + ' ');
+    } else {
+      const lastAtIndex = input.lastIndexOf('@');
+      const newInput = input.slice(0, lastAtIndex) + '@' + username + ' ';
+      setInput(newInput);
+    }
+    setShowDropdown(false);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showDropdown && filteredUsers.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev + 1) % filteredUsers.length);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => (prev - 1 + filteredUsers.length) % filteredUsers.length);
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertUser(filteredUsers[selectedIndex]);
+        return;
+      } else if (e.key === 'Escape') {
+        setShowDropdown(false);
+        return;
+      }
+    }
+
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing && !showDropdown) {
+      handleSubmit();
+    }
+  };
 
   const handleSubmit = () => {
     const text = input.trim();
     if (!text) return;
+
+    // 귓속말 파싱: /유저이름 메시지
+    if (text.startsWith('/')) {
+      const spaceIndex = text.indexOf(' ');
+      if (spaceIndex > 1) {
+        const whisperTo = text.slice(1, spaceIndex);
+        const message = text.slice(spaceIndex + 1).trim();
+        if (message && userList.includes(whisperTo)) {
+          setInput('');
+          setShowDropdown(false);
+          onSubmit(message, whisperTo);
+          return;
+        }
+      }
+    }
+
     setInput('');
+    setShowDropdown(false);
     onSubmit(text);
   };
 
+  // 귓속말 모드인지 확인
+  const isWhisperMode = input.startsWith('/') && input.indexOf(' ') > 1;
+  const whisperTarget = isWhisperMode ? input.slice(1, input.indexOf(' ')) : null;
+
   return (
-    <div className="flex gap-2">
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSubmit()}
-        placeholder="채팅을 입력하세요..."
-        className="flex-1 bg-slate-800/80 border border-slate-700 rounded-2xl py-3 px-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/20 transition-all"
-      />
-      <button
-        onClick={handleSubmit}
-        className="bg-blue-600 active:bg-blue-700 text-white px-4 py-3 rounded-2xl flex items-center justify-center active:scale-95 transition-all"
-      >
-        <Send size={20} />
-      </button>
+    <div className="relative">
+      {/* 유저 선택 드롭다운 */}
+      {showDropdown && filteredUsers.length > 0 && (
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl z-50">
+          <div className={`px-3 py-1.5 text-xs font-bold border-b border-slate-700 ${dropdownType === 'whisper' ? 'text-pink-400 bg-pink-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
+            {dropdownType === 'whisper' ? '🤫 귓속말 대상 선택' : '@ 멘션'}
+          </div>
+          {filteredUsers.map((user, idx) => (
+            <button
+              key={user}
+              onClick={() => insertUser(user)}
+              className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-colors ${
+                idx === selectedIndex
+                  ? (dropdownType === 'whisper' ? 'bg-pink-600 text-white' : 'bg-blue-600 text-white')
+                  : 'text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <span className={dropdownType === 'whisper' ? 'text-pink-400' : 'text-blue-400'}>
+                {dropdownType === 'whisper' ? '/' : '@'}
+              </span>
+              <span>{user}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 귓속말 모드 표시 */}
+      {isWhisperMode && whisperTarget && (
+        <div className="absolute -top-6 left-0 text-xs text-pink-400 flex items-center gap-1">
+          <span>🤫</span>
+          <span>{whisperTarget}에게 귓속말</span>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder="채팅 (@멘션 /귓속말)"
+          className={`flex-1 bg-slate-800/80 border rounded-2xl py-3 px-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all ${
+            isWhisperMode
+              ? 'border-pink-500/50 focus:border-pink-500/50 focus:ring-pink-500/20'
+              : 'border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20'
+          }`}
+        />
+        <button
+          onClick={handleSubmit}
+          className={`px-4 py-3 rounded-2xl flex items-center justify-center active:scale-95 transition-all ${
+            isWhisperMode
+              ? 'bg-pink-600 active:bg-pink-700 text-white'
+              : 'bg-blue-600 active:bg-blue-700 text-white'
+          }`}
+        >
+          <Send size={20} />
+        </button>
+      </div>
     </div>
   );
 });
@@ -337,6 +481,11 @@ export default function App() {
   const [showWeaponDetail, setShowWeaponDetail] = useState(false);
   const [useScrollForEnhance, setUseScrollForEnhance] = useState(false); // 주문서 사용 여부
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+
+  // 멘션 알림 State
+  const [allUsernames, setAllUsernames] = useState<string[]>([]);
+  const mentionSoundRef = React.useRef<HTMLAudioElement | null>(null);
+  const lastMessageIdRef = React.useRef<string>('');
 
   // Battle State
   const [availableOpponents, setAvailableOpponents] = useState<{ profile: UserProfile, gameData: any }[]>([]);
@@ -458,16 +607,60 @@ export default function App() {
     return () => unsubscribe();
   }, [firebaseConfigured]);
 
-  // 실시간 글로벌 채팅 구독
+  // 실시간 글로벌 채팅 구독 + 멘션 알림
   useEffect(() => {
     if (!firebaseConfigured || !firebaseUser) return;
 
+    // 알림음 초기화
+    if (!mentionSoundRef.current) {
+      mentionSoundRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleivH5f+z2rqWgIBmT1dWVkpCPUBRaXuAgHJlY3V7f4WNlYmDf4WMnqWwnYV2dIaVp7CrmI1/eISNlqOynZqXoKq2xca6q5yYlJ2ssbu7rqmho6qytcPGyLuwnJmdqLayv8LBurKpr7jEx8/LuqGVl5+qt7/Av7y4uMDM1dfOuaKTkpmeqrW7vry4ucPO2NzZz7SZjoiTn6y2ur69w8zX4uPe0LCYh4SNo6+5vL7Dx83Z5urt5dG2m4iGkKKwu8HDyM/Y4+zy8unYv6CKhoqZqre/w8jP2eLt9PTs3cWokYeLlqSwu8HHz9fh7PP18+bPtp2Mh4+eq7a+xMrT3Ofw9fXv5NO6opGLkZ2rs73DytLb5e/29fHn2cWqmI+Pmaexu8HGztfd5+/19O/l18OpmJGSm6iyvL/GzdXe5+/z8+7j1cGnmZSXnqiyu7/Fzdbf6PL18+3h08CmmpWYn6ixu7/ExtPc5e3z9O/k1sKomZWYn6myu7/Fzdbf6PH08+3i1MGomZaYn6iyu8DFzdXe5+7z8+7k1sOnmZaYoKmyu8DGztbd5u7z9O7k1sOnmZaYoKmyusDGztbd5u7z8+7k1sOomZaYoKmyusHGztXe5+7z8+3j1cKnmZaYoKmyusDGztbd5u7z8+7k1sOnmZaYoKmyusDGztXd5u7z8+7k1sOnmZaYoKmyu8DGztbd5u7z9O7k1sOnmJaYoKmyusDGztXe5+7z8+3k1sOomZaYn6myusDGztbd5u7z8+7k1sOnmZaYoKmyusDGztXe5+7z8+3k1sOomZaYoKmyu8DGztbd5u/z8+7k1sOomZaYoKmyusDFzdbd5+7z9O7k1sOomZaYoKmyusDFztXe5+7z8+7k1sOomZaYn6myusDGztXe5+7z8+7k1sOomZaYoKmyusHGztXe5+7z8+3k1sOnmZaYoKmyu8DFztbd5u7z8+7k1sOn');
+    }
+
     const unsubscribe = subscribeToGlobalChat((messages) => {
+      // 새 메시지 확인 및 멘션 알림
+      if (messages.length > 0) {
+        const latestMsg = messages[messages.length - 1];
+
+        // 새 메시지이고, 내 메시지가 아닌 경우
+        if (latestMsg.id && latestMsg.id !== lastMessageIdRef.current && latestMsg.uid !== firebaseUser.uid) {
+          // 귓속말 알림
+          if (latestMsg.type === 'whisper' && latestMsg.whisperTo === stats.username) {
+            mentionSoundRef.current?.play().catch(() => {});
+            if (Notification.permission === 'granted') {
+              new Notification('🤫 귓속말', {
+                body: `${latestMsg.username}: ${latestMsg.content}`,
+                icon: '/favicon.ico'
+              });
+            }
+          }
+          // 멘션 알림
+          else if (latestMsg.content && latestMsg.content.includes(`@${stats.username}`)) {
+            mentionSoundRef.current?.play().catch(() => {});
+            if (Notification.permission === 'granted') {
+              new Notification('멘션 알림', {
+                body: `${latestMsg.username}: ${latestMsg.content}`,
+                icon: '/favicon.ico'
+              });
+            }
+          }
+          lastMessageIdRef.current = latestMsg.id;
+        }
+
+        // 유저 이름 목록 업데이트 (멘션 자동완성용)
+        const usernames = [...new Set(messages.map(m => m.username))];
+        setAllUsernames(usernames);
+      }
+
       setGlobalMessages(messages);
     }, 100);
 
+    // 브라우저 알림 권한 요청
+    if (Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
     return () => unsubscribe();
-  }, [firebaseConfigured, firebaseUser]);
+  }, [firebaseConfigured, firebaseUser, stats.username]);
 
   // 게임 데이터 저장 (stats나 weapon 변경 시)
   useEffect(() => {
@@ -1202,10 +1395,22 @@ export default function App() {
     setIsElementEnhancing(false);
   };
 
-  const handleChatSubmit = async (input: string) => {
+  const handleChatSubmit = async (input: string, whisperTo?: string) => {
     if (!input) return;
 
-    // 명령어 처리 (슬래시로 시작하는 경우만)
+    // 귓속말 처리
+    if (whisperTo) {
+      await sendGlobalMessage({
+        uid: firebaseUser!.uid,
+        username: stats.username,
+        type: 'whisper',
+        content: input,
+        whisperTo: whisperTo
+      });
+      return;
+    }
+
+    // 명령어 처리 (슬래시로 시작하는 경우만) - 귓속말이 아닌 경우에만
     if (input.startsWith('/')) {
       const command = input.slice(1).toLowerCase();
       if (command === '강화' || command === 'enhance') {
@@ -2352,6 +2557,32 @@ export default function App() {
     const isEnhancement = message.type === 'enhancement';
     const isBattle = message.type === 'battle';
     const isShowOff = message.type === 'showoff';
+    const isWhisper = message.type === 'whisper';
+
+    // 멘션 하이라이트 처리
+    const isMentioned = message.content?.includes(`@${stats.username}`);
+
+    // 메시지 내용에서 @멘션을 하이라이트하는 함수
+    const renderContent = (content: string) => {
+      const mentionRegex = /@(\S+)/g;
+      const parts = content.split(mentionRegex);
+
+      return parts.map((part, idx) => {
+        // 홀수 인덱스는 멘션된 유저이름
+        if (idx % 2 === 1) {
+          const isMeMentioned = part === stats.username;
+          return (
+            <span
+              key={idx}
+              className={`font-bold ${isMeMentioned ? 'text-yellow-300 bg-yellow-500/20 px-1 rounded' : 'text-blue-400'}`}
+            >
+              @{part}
+            </span>
+          );
+        }
+        return part;
+      });
+    };
 
     // 무기 카드 표시 여부
     const showWeaponCard = (isEnhancement && message.metadata?.success) || isShowOff;
@@ -2377,12 +2608,30 @@ export default function App() {
       );
     }
 
+    // 귓속말 메시지
+    if (isWhisper) {
+      const isFromMe = isOwnMessage;
+      return (
+        <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-3`}>
+          <div className={`max-w-[80%] ${isFromMe ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md'} px-4 py-3 text-sm shadow-lg bg-gradient-to-br from-pink-900/80 to-purple-900/80 border border-pink-500/30`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-pink-300 text-[10px]">🤫 귓속말</span>
+              <span className="text-xs text-pink-200">
+                {isFromMe ? `→ ${message.whisperTo}` : `← ${message.username}`}
+              </span>
+            </div>
+            <div className="whitespace-pre-wrap text-pink-100">{message.content}</div>
+          </div>
+        </div>
+      );
+    }
+
     if (isChat && isOwnMessage) {
       return (
         <div className="flex justify-end mb-3">
           <div className="max-w-[80%] bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl rounded-br-md px-4 py-3 text-sm text-white shadow-lg">
             <div className="text-xs text-blue-200 mb-1">{message.username}</div>
-            {message.content}
+            <div className="whitespace-pre-wrap">{renderContent(message.content)}</div>
           </div>
         </div>
       );
@@ -2392,7 +2641,7 @@ export default function App() {
     const isMaintain = isEnhancement && message.metadata?.success === undefined;
 
     return (
-      <div className="flex justify-start mb-3">
+      <div className={`flex justify-start mb-3 ${isMentioned ? 'animate-pulse' : ''}`}>
         <div className="flex gap-2 max-w-[85%]">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xs ${isEnhancement ? (message.metadata?.success ? 'bg-green-600' : isMaintain ? 'bg-blue-600' : 'bg-red-600') :
             isBattle ? (message.metadata?.success ? 'bg-yellow-600' : 'bg-slate-600') :
@@ -2404,7 +2653,9 @@ export default function App() {
                 isShowOff ? <Trophy size={16} className="text-white" /> :
                   message.username[0].toUpperCase()}
           </div>
-          <div className={`rounded-2xl rounded-bl-md px-4 py-3 text-sm shadow-lg ${isEnhancement ? (
+          <div className={`rounded-2xl rounded-bl-md px-4 py-3 text-sm shadow-lg ${
+            isMentioned ? 'ring-2 ring-yellow-400/50 ' : ''
+          }${isEnhancement ? (
             message.metadata?.success ? 'bg-green-950 border border-green-500/30 text-green-100' :
               isMaintain ? 'bg-blue-950 border border-blue-500/30 text-blue-100' :
                 'bg-red-950 border border-red-500/30 text-red-100'
@@ -2414,7 +2665,7 @@ export default function App() {
                 'bg-slate-900 border border-slate-700/50 text-slate-200'
             }`}>
             <div className="text-xs text-slate-400 mb-1 font-bold">{message.username}</div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            <div className="whitespace-pre-wrap">{renderContent(message.content)}</div>
             {/* 무기 카드 표시 */}
             {weaponForCard && (
               <div className="mt-3">
@@ -2475,7 +2726,15 @@ export default function App() {
                 </div>
               ) : (
                 <>
-                  {globalMessages.map((msg) => (
+                  {globalMessages
+                    .filter((msg) => {
+                      // 귓속말은 보낸 사람과 받는 사람만 볼 수 있음
+                      if (msg.type === 'whisper') {
+                        return msg.uid === firebaseUser?.uid || msg.whisperTo === stats.username;
+                      }
+                      return true;
+                    })
+                    .map((msg) => (
                     <ChatMessageItem key={msg.id} message={msg} isOwnMessage={msg.uid === firebaseUser?.uid} />
                   ))}
                   <div id="chat-end-marker" ref={chatEndRef} />
@@ -2570,7 +2829,7 @@ export default function App() {
 
         {/* Chat Input */}
         <div className="px-4 py-2 border-t border-white/5">
-          <ChatInput onSubmit={handleChatSubmit} />
+          <ChatInput onSubmit={handleChatSubmit} userList={allUsernames} />
         </div>
 
         {/* Navigation Bar */}
