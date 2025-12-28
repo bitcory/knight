@@ -1934,23 +1934,23 @@ export default function App() {
                       mythic: 'text-red-400 bg-red-900/20 border-red-700/50'
                     };
                     return (
-                      <div key={rarity} className={`flex items-center gap-4 p-4 rounded-2xl border ${rarityColors[rarity]}`}>
-                        <div className="w-20 h-20 bg-slate-800/50 rounded-xl flex items-center justify-center">
+                      <div key={rarity} className={`p-3 rounded-2xl border ${rarityColors[rarity]}`}>
+                        <div className="w-full h-24 bg-slate-900/50 rounded-xl flex items-center justify-center mb-2">
                           <img
                             src={`/weapons/${showWeaponGuide!.toLowerCase()}_${rarity}.png`}
                             alt={rarityNames[rarity]}
-                            className="w-16 h-16 object-contain"
+                            className="h-20 w-auto object-contain"
                           />
                         </div>
-                        <div>
-                          <span className={`font-bold text-base ${rarityColors[rarity].split(' ')[0]}`}>{rarityNames[rarity]}</span>
-                          <p className="text-sm text-slate-500">
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold text-sm ${rarityColors[rarity].split(' ')[0]}`}>{rarityNames[rarity]}</span>
+                          <span className="text-xs text-slate-500">
                             {rarity === 'common' && '+0 ~ +3'}
                             {rarity === 'rare' && '+4 ~ +7'}
                             {rarity === 'epic' && '+8 ~ +11'}
                             {rarity === 'legendary' && '+12 ~ +16'}
                             {rarity === 'mythic' && '+17 ~ +20'}
-                          </p>
+                          </span>
                         </div>
                       </div>
                     );
