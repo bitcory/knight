@@ -968,7 +968,11 @@ export default function App() {
 
     const isWin = Math.random() < winChance;
     const baseReward = 100 + (opponentWeapon.level * 20);
-    const reward = isWin ? baseReward : Math.floor(baseReward * 0.2);
+
+    // 레벨 차이 보너스 (낮은 레벨이 높은 레벨을 이겼을 때)
+    const levelDiff = opponentWeapon.level - weapon.level;
+    const underDogBonus = (isWin && levelDiff > 0) ? (1 + (levelDiff * 0.5)) : 1; // 레벨 차이 1당 50% 보너스
+    const reward = isWin ? Math.floor(baseReward * underDogBonus) : Math.floor(baseReward * 0.2);
 
     setStats(prev => ({
       ...prev,
@@ -1003,6 +1007,11 @@ export default function App() {
     const oppElementStr = opponentWeapon.element && opponentWeapon.element !== ElementType.NONE
       ? ` [${ELEMENT_NAMES[opponentWeapon.element]}+${opponentWeapon.elementLevel || 0}]` : '';
 
+    // 언더독 보너스 메시지
+    const underDogMsg = (isWin && levelDiff > 0)
+      ? `\n🎯 언더독 보너스! (+${levelDiff}레벨 차이 → x${underDogBonus.toFixed(1)} 보상!)`
+      : '';
+
     sendGlobalChatMessage('battle',
       `⚔️ PvP 매치!\n\n` +
       `[+${weapon.level}] ${weapon.name} (${WEAPON_TYPE_NAMES[weapon.type]})${myElementStr} - 전투력: ${myPower.toLocaleString()}\n` +
@@ -1011,7 +1020,7 @@ export default function App() {
       advantageMsg + `\n\n` +
       `${battleLog}\n\n` +
       (isWin
-        ? `🏆 승리! @${opponent.profile.username}님을 물리쳤습니다!\n💰 +${reward.toLocaleString()}G 획득!`
+        ? `🏆 승리! @${opponent.profile.username}님을 물리쳤습니다!${underDogMsg}\n💰 +${reward.toLocaleString()}G 획득!`
         : `💀 패배... @${opponent.profile.username}님에게 패배했습니다.\n💰 +${reward.toLocaleString()}G 위로금`), {
       success: isWin,
       opponentName: opponent.profile.username,
