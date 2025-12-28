@@ -29,7 +29,9 @@ import {
   Moon,
   Ghost,
   Gift,
-  Camera
+  Camera,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import {
   Weapon,
@@ -213,6 +215,7 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
   const [dropdownType, setDropdownType] = useState<'mention' | 'whisper'>('mention');
   const [searchText, setSearchText] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [showHelp, setShowHelp] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   // 검색어에 맞는 유저 필터링
@@ -376,7 +379,63 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
         >
           <Send size={20} />
         </button>
+        <button
+          onClick={() => setShowHelp(true)}
+          className="px-3 py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center active:scale-95 transition-all"
+        >
+          <HelpCircle size={20} />
+        </button>
       </div>
+
+      {/* 도움말 모달 */}
+      {showHelp && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowHelp(false)}>
+          <div className="bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl border border-slate-700 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <HelpCircle size={20} className="text-blue-400" />
+                채팅 도움말
+              </h3>
+              <button onClick={() => setShowHelp(false)} className="p-1 rounded-lg hover:bg-slate-700 transition-colors">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="space-y-3">
+                <div className="bg-slate-900/50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-blue-400 font-bold">@</span>
+                    <span className="font-semibold text-white">멘션</span>
+                  </div>
+                  <p className="text-sm text-slate-400">@유저이름을 입력하면 해당 유저에게 알림이 갑니다.</p>
+                  <p className="text-xs text-slate-500 mt-1">예: @코리 안녕하세요!</p>
+                </div>
+
+                <div className="bg-slate-900/50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-pink-400 font-bold">/</span>
+                    <span className="font-semibold text-white">귓속말</span>
+                  </div>
+                  <p className="text-sm text-slate-400">/유저이름 메시지를 입력하면 해당 유저에게만 보이는 비밀 메시지를 보냅니다.</p>
+                  <p className="text-xs text-slate-500 mt-1">예: /코리 비밀이야</p>
+                </div>
+
+                <div className="bg-slate-900/50 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-yellow-400">💬</span>
+                    <span className="font-semibold text-white">일반 채팅</span>
+                  </div>
+                  <p className="text-sm text-slate-400">그냥 메시지를 입력하면 모든 유저에게 공개됩니다.</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-700">
+                <p className="text-xs text-slate-500 text-center">자동완성: @나 /를 입력하면 유저 목록이 표시됩니다</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
