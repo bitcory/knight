@@ -1657,6 +1657,18 @@ export default function App() {
   const renderBattle = () => {
     const myPower = weapon.baseDamage + (weapon.level * 25) + (weapon.level * weapon.level * 2);
 
+    // 랭킹 데이터 생성 (나 + 상대들)
+    const allPlayers = [
+      { username: stats.username, wins: stats.wins, losses: stats.losses, level: weapon.level, isMe: true },
+      ...availableOpponents.map(opp => ({
+        username: opp.profile.username,
+        wins: opp.gameData.stats?.wins || 0,
+        losses: opp.gameData.stats?.losses || 0,
+        level: opp.gameData.weapon?.level || 0,
+        isMe: false
+      }))
+    ].sort((a, b) => b.wins - a.wins);
+
     return (
       <div className="flex flex-col animate-fade-in space-y-4">
         {/* Header */}
@@ -1665,6 +1677,36 @@ export default function App() {
           <p className="text-slate-400 text-sm">
             오늘 전투: <span className="text-yellow-400 font-bold">{dailyBattleCount}</span> / {MAX_DAILY_BATTLES}회
           </p>
+        </div>
+
+        {/* 랭킹 */}
+        <div className="glass-panel p-3 rounded-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <Trophy size={16} className="text-yellow-400" />
+            <h3 className="text-sm font-bold text-white">승리 랭킹</h3>
+          </div>
+          <div className="space-y-2 max-h-32 overflow-y-auto">
+            {allPlayers.slice(0, 10).map((player, idx) => (
+              <div
+                key={player.username}
+                className={`flex items-center justify-between px-2 py-1.5 rounded-lg ${player.isMe ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-slate-800/30'}`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-5 text-center font-bold text-xs ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-slate-500'}`}>
+                    {idx + 1}
+                  </span>
+                  <span className={`text-sm ${player.isMe ? 'text-yellow-400 font-bold' : 'text-slate-300'}`}>
+                    {player.username} {player.isMe && '(나)'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="text-slate-500">+{player.level}</span>
+                  <span className="text-green-400">{player.wins}승</span>
+                  <span className="text-red-400">{player.losses}패</span>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* My Power */}
