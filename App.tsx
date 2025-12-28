@@ -1017,6 +1017,10 @@ export default function App() {
       opponentName: opponent.profile.username,
       goldChange: reward
     });
+
+    // 전투 후 정보창으로 이동하고 스크롤 하단으로
+    setView(GameView.HOME);
+    setTimeout(() => scrollChatToBottom(true), 300);
   };
 
   const buyScroll = () => {
