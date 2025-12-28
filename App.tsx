@@ -424,6 +424,15 @@ export default function App() {
       if (container) {
         container.scrollTop = container.scrollHeight;
       }
+      // 스크롤 후 위치 체크
+      setTimeout(() => {
+        const c = document.getElementById('chat-scroll-container');
+        if (c) {
+          const threshold = 100;
+          const isBottom = c.scrollHeight - c.scrollTop - c.clientHeight < threshold;
+          setIsAtBottom(isBottom);
+        }
+      }, 50);
     };
 
     if (force) {
@@ -467,20 +476,34 @@ export default function App() {
   }, [globalMessages.length, scrollChatToBottom]);
 
   // 스크롤 위치 추적 (맨 아래인지 확인)
-  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
+
+  const checkScrollPosition = React.useCallback(() => {
+    const container = document.getElementById('chat-scroll-container');
+    if (!container) return;
+    const threshold = 100;
+    const isBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    setIsAtBottom(isBottom);
+  }, []);
+
   useEffect(() => {
     const container = document.getElementById('chat-scroll-container');
     if (!container) return;
 
-    const handleScroll = () => {
-      const threshold = 100; // 100px 이내면 맨 아래로 간주
-      const isBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
-      setIsAtBottom(isBottom);
-    };
+    // 초기 체크
+    checkScrollPosition();
 
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [view]);
+    // 스크롤 이벤트 리스너
+    container.addEventListener('scroll', checkScrollPosition);
+    return () => container.removeEventListener('scroll', checkScrollPosition);
+  }, [view, checkScrollPosition]);
+
+  // 메시지 로드 후 스크롤 위치 체크
+  useEffect(() => {
+    if (globalMessages.length > 0) {
+      setTimeout(checkScrollPosition, 200);
+    }
+  }, [globalMessages.length, checkScrollPosition]);
 
   // 일일 전투 횟수 체크 및 리셋
   useEffect(() => {
