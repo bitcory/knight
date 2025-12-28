@@ -372,6 +372,11 @@ export default function App() {
     }
 
     setView(viewId);
+
+    // 정보(HOME) 탭 클릭 시 스크롤 하단으로
+    if (viewId === GameView.HOME) {
+      setTimeout(() => scrollChatToBottom(true), 100);
+    }
   };
 
   // Firebase 설정 확인
@@ -904,6 +909,9 @@ export default function App() {
       isGoddess: isGoddessAppeared && resultType === 'success'
     });
     setIsEnhancing(false);
+
+    // 강화 후 채팅 스크롤 하단으로
+    setTimeout(() => scrollChatToBottom(true), 500);
   };
 
   const handleBattle = async (opponent?: { profile: UserProfile, gameData: any }) => {
