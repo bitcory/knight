@@ -980,13 +980,35 @@ export default function App() {
     // 승률 범위 제한 (20% ~ 80%) - 항상 역전 가능성 유지
     winChance = Math.max(0.20, Math.min(0.80, winChance));
 
-    const isWin = Math.random() < winChance;
-    const baseReward = 100 + (opponentWeapon.level * 20);
-
-    // 레벨 차이 보너스 (낮은 레벨이 높은 레벨을 이겼을 때)
+    // 🔥 불굴의 투지: 저레벨이 고레벨 상대 시 10% 확률로 발동
     const levelDiff = opponentWeapon.level - weapon.level;
-    const underDogBonus = (isWin && levelDiff > 0) ? (1 + (levelDiff * 0.5)) : 1; // 레벨 차이 1당 50% 보너스
-    const reward = isWin ? Math.floor(baseReward * underDogBonus) : Math.floor(baseReward * 0.2);
+    const isUnderdog = levelDiff > 0; // 내가 저레벨인 경우
+    const indomitableRoll = Math.random();
+    const isIndomitableSpirit = isUnderdog && indomitableRoll < 0.10; // 10% 확률
+
+    // 승리 판정: 불굴의 투지 발동 시 무조건 승리
+    const normalWin = Math.random() < winChance;
+    const isWin = isIndomitableSpirit || normalWin;
+
+    // 보상 계산
+    const baseReward = 100 + (opponentWeapon.level * 20);
+    const opponentGold = opponent.gameData.stats?.gold || 0;
+
+    let reward: number;
+    let lootedGold = 0;
+
+    if (isIndomitableSpirit) {
+      // 불굴의 투지 발동: 상대 골드의 50% 약탈!
+      lootedGold = Math.floor(opponentGold * 0.5);
+      reward = baseReward + lootedGold;
+    } else if (isWin) {
+      // 일반 승리: 언더독 보너스 적용
+      const underDogBonus = (levelDiff > 0) ? (1 + (levelDiff * 0.5)) : 1;
+      reward = Math.floor(baseReward * underDogBonus);
+    } else {
+      // 패배: 위로금
+      reward = Math.floor(baseReward * 0.2);
+    }
 
     setStats(prev => ({
       ...prev,
@@ -1013,7 +1035,7 @@ export default function App() {
 
     const advantageMsg = typeAdvMsg + elementAdvMsg;
 
-    addLog('battle', isWin ? `승리! vs ${opponent.profile.username} +${reward}G` : `패배... vs ${opponent.profile.username} +${reward}G`, battleLog, isWin);
+    addLog('battle', isWin ? `승리! vs ${opponent.profile.username} +${reward.toLocaleString()}G` : `패배... vs ${opponent.profile.username} +${reward.toLocaleString()}G`, battleLog, isWin);
 
     // 속성 표시 문자열
     const myElementStr = weapon.element && weapon.element !== ElementType.NONE
@@ -1021,10 +1043,14 @@ export default function App() {
     const oppElementStr = opponentWeapon.element && opponentWeapon.element !== ElementType.NONE
       ? ` [${ELEMENT_NAMES[opponentWeapon.element]}+${opponentWeapon.elementLevel || 0}]` : '';
 
-    // 언더독 보너스 메시지
-    const underDogMsg = (isWin && levelDiff > 0)
-      ? `\n🎯 언더독 보너스! (+${levelDiff}레벨 차이 → x${underDogBonus.toFixed(1)} 보상!)`
-      : '';
+    // 특수 승리 메시지
+    let specialMsg = '';
+    if (isIndomitableSpirit) {
+      specialMsg = `\n\n🔥 【 불굴의 투지 발동! 】 🔥\n약자의 반격! 상대 골드 ${lootedGold.toLocaleString()}G 약탈!`;
+    } else if (isWin && levelDiff > 0) {
+      const underDogMultiplier = 1 + (levelDiff * 0.5);
+      specialMsg = `\n🎯 언더독 보너스! (+${levelDiff}레벨 차이 → x${underDogMultiplier.toFixed(1)} 보상!)`;
+    }
 
     sendGlobalChatMessage('battle',
       `⚔️ PvP 매치!\n\n` +
@@ -1032,10 +1058,10 @@ export default function App() {
       `  VS\n` +
       `@${opponent.profile.username} [+${opponentWeapon.level}] ${opponentWeapon.name} (${WEAPON_TYPE_NAMES[opponentWeapon.type]})${oppElementStr} - 전투력: ${opponentPower.toLocaleString()}` +
       advantageMsg + `\n\n` +
-      `${battleLog}\n\n` +
+      `${battleLog}` +
       (isWin
-        ? `🏆 승리! @${opponent.profile.username}님을 물리쳤습니다!${underDogMsg}\n💰 +${reward.toLocaleString()}G 획득!`
-        : `💀 패배... @${opponent.profile.username}님에게 패배했습니다.\n💰 +${reward.toLocaleString()}G 위로금`), {
+        ? `\n\n🏆 승리! @${opponent.profile.username}님을 물리쳤습니다!${specialMsg}\n💰 +${reward.toLocaleString()}G 획득!`
+        : `\n\n💀 패배... @${opponent.profile.username}님에게 패배했습니다.\n💰 +${reward.toLocaleString()}G 위로금`), {
       success: isWin,
       opponentName: opponent.profile.username,
       goldChange: reward
