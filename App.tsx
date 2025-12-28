@@ -767,11 +767,13 @@ export default function App() {
     const adjustedSuccessChance = Math.min(Math.max(successChance + bonusChance - rankPenalty, 0.05), 0.95);
     const adjustedDestroyChance = Math.max(destroyChance - bonusChance + (rankPenalty * 0.5), 0);
 
-    // 🌟 행운의 여신이 등장하면 무조건 성공!
+    // 🌟 행운의 여신이 등장하면 무조건 성공 + 3단계 상승!
     if (isGoddessAppeared || roll < adjustedSuccessChance) {
       // 강화 성공
       resultType = 'success';
-      const newLevel = prevLevel + 1;
+      // 행운의 여신 강림 시 3단계 상승, 일반 성공 시 1단계 상승
+      const levelIncrease = isGoddessAppeared ? 3 : 1;
+      const newLevel = Math.min(prevLevel + levelIncrease, MAX_LEVEL);
       flavorData = await generateEnhancementFlavor(weapon, true, newLevel);
 
       updatedWeapon = {
@@ -789,7 +791,7 @@ export default function App() {
       const remainingGold = stats.gold - cost;
       sendGlobalChatMessage('enhancement',
         (isGoddessAppeared
-          ? `【 🌟 행운의 여신 강림! 🌟 】\n\n✨ 여신의 축복으로 강화가 성공했습니다!\n\n`
+          ? `【 🌟 행운의 여신 강림! 🌟 】\n\n✨ 여신의 축복으로 +${levelIncrease}단계 강화 성공!\n+${prevLevel} → +${newLevel}\n\n`
           : `【 ✨ 강화 성공 ✨  +${prevLevel} → +${newLevel} 】\n\n`) +
         `🔨 대장장이: "${flavorData.quote}"`, {
         success: true,
@@ -1354,7 +1356,7 @@ export default function App() {
               )}
               <div className="font-bold text-xl mb-1">
                 {showEnhanceResult.isGoddess
-                  ? '행운의 여신 강림!'
+                  ? '행운의 여신 강림! +3단계!'
                   : showEnhanceResult.success
                     ? '성공!'
                     : '실패...'}
@@ -1396,7 +1398,7 @@ export default function App() {
           {/* 행운의 여신 안내 */}
           <div className="mt-3 flex items-center gap-3 text-sm text-yellow-400 bg-yellow-950/30 p-3 rounded-xl border border-yellow-900/50">
             <Sparkles size={18} className="shrink-0" />
-            <span>10% 확률로 행운의 여신이 강림합니다!</span>
+            <span>10% 확률로 행운의 여신이 강림하여 +3단계 강화!</span>
           </div>
 
           {/* 랭킹 1위 패널티 경고 */}
