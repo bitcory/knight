@@ -606,7 +606,7 @@ const Navigation: React.FC<{ current: GameView; onSelect: (v: GameView) => void;
   </nav>
 );
 
-const Header: React.FC<{ stats: PlayerStats; isFrame?: boolean }> = ({ stats, isFrame = false }) => (
+const Header: React.FC<{ stats: PlayerStats; isFrame?: boolean; isAdmin?: boolean }> = ({ stats, isFrame = false, isAdmin = false }) => (
   <header className={`sticky top-0 z-40 w-full px-4 py-3 ${isFrame ? 'pt-8' : 'pt-safe'} bg-slate-950/90 backdrop-blur-xl border-b border-white/5`}>
     <div className="flex justify-between items-center">
       <div className="flex items-center gap-3">
@@ -623,7 +623,7 @@ const Header: React.FC<{ stats: PlayerStats; isFrame?: boolean }> = ({ stats, is
       <div className="flex gap-2">
         <div className="glass-panel px-3 py-2 rounded-xl flex items-center gap-2">
           <Coins size={16} className="text-yellow-400" />
-          <span className="text-sm font-mono font-bold text-yellow-100">{stats.gold.toLocaleString()}</span>
+          <span className="text-sm font-mono font-bold text-yellow-100">{isAdmin ? '∞' : stats.gold.toLocaleString()}</span>
         </div>
         <div className="glass-panel px-3 py-2 rounded-xl flex items-center gap-2">
           <ScrollText size={16} className="text-blue-400" />
@@ -670,6 +670,7 @@ export default function App() {
   const [inputId, setInputId] = useState(''); // 아이디 (내부적으로 @knight.game 이메일로 변환)
   const [inputUsername, setInputUsername] = useState('');
   const [inputPassword, setInputPassword] = useState('');
+  const [inputReferral, setInputReferral] = useState(''); // 추천인 아이디
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -1125,6 +1126,8 @@ export default function App() {
   // 아이디를 이메일 형식으로 변환
   const idToEmail = (id: string) => `${id.toLowerCase()}@knight.game`;
 
+  const REFERRAL_BONUS = 200000; // 추천인 보너스 골드
+
   const handleRegister = async () => {
     if (!firebaseConfigured) {
       setAuthError('Firebase가 설정되지 않았습니다. .env 파일을 확인해주세요.');
@@ -1153,14 +1156,57 @@ export default function App() {
       return;
     }
 
+    // 추천인 검증 (입력된 경우에만)
+    let referrerUid: string | null = null;
+    let referrerUsername: string | null = null;
+    if (inputReferral.trim()) {
+      const referralId = inputReferral.trim().toLowerCase();
+      // 자기 자신을 추천인으로 입력할 수 없음
+      if (referralId === inputId.trim().toLowerCase()) {
+        setAuthError('자신을 추천인으로 입력할 수 없습니다.');
+        return;
+      }
+      // 추천인 존재 확인
+      const allUsers = await getAllUsers();
+      const referrer = allUsers.find(u => u.email === idToEmail(referralId));
+      if (!referrer) {
+        setAuthError('존재하지 않는 추천인 아이디입니다.');
+        return;
+      }
+      referrerUid = referrer.uid;
+      referrerUsername = referrer.username;
+    }
+
     setAuthLoading(true);
     try {
       const fakeEmail = idToEmail(inputId.trim());
-      await registerUser(fakeEmail, inputPassword, inputUsername.trim());
-      // Firebase Auth 상태 변경으로 자동 로그인됨
-      setTimeout(() => {
-        sendGlobalChatMessage('system', `🎉 ${inputUsername.trim()}님이 새로운 기사로 등록했습니다!`);
-      }, 1000);
+      const newUser = await registerUser(fakeEmail, inputPassword, inputUsername.trim());
+
+      // 추천인이 있으면 보너스 골드 지급
+      if (referrerUid && referrerUsername) {
+        // 추천인에게 골드 지급
+        await giftGoldToUser(referrerUid, REFERRAL_BONUS);
+
+        // 신규 가입자에게 골드 지급 (초기 게임 데이터 생성 대기 후)
+        setTimeout(async () => {
+          await giftGoldToUser(newUser.uid, REFERRAL_BONUS);
+        }, 2000);
+
+        // 추천 성공 메시지
+        setTimeout(() => {
+          sendGlobalChatMessage('system',
+            `🎉 ${inputUsername.trim()}님이 ${referrerUsername}님의 추천으로 가입했습니다!\n` +
+            `💰 추천 보너스: 양쪽 모두 ${REFERRAL_BONUS.toLocaleString()}G 지급!`
+          );
+        }, 1000);
+      } else {
+        // 일반 가입 메시지
+        setTimeout(() => {
+          sendGlobalChatMessage('system', `🎉 ${inputUsername.trim()}님이 새로운 기사로 등록했습니다!`);
+        }, 1000);
+      }
+
+      setInputReferral(''); // 추천인 입력 초기화
     } catch (error: any) {
       console.error('Register error:', error);
       if (error.code === 'auth/email-already-in-use') {
@@ -1227,7 +1273,7 @@ export default function App() {
 
     const { cost, successChance, maintainChance, destroyChance } = getEnhanceConfig(weapon.level);
 
-    if (stats.gold < cost) {
+    if (!isAdmin && stats.gold < cost) {
       alert(`골드가 부족합니다! ${cost.toLocaleString()}G 필요`);
       return;
     }
@@ -1238,10 +1284,10 @@ export default function App() {
     setIsEnhancing(true);
     setShowEnhanceResult(null);
 
-    // 골드 차감 (주문서 사용 시 주문서도 차감)
+    // 골드 차감 (주문서 사용 시 주문서도 차감) - 관리자는 골드 차감 없음
     setStats(prev => ({
       ...prev,
-      gold: prev.gold - cost,
+      gold: isAdmin ? prev.gold : prev.gold - cost,
       scrolls: willUseScroll ? prev.scrolls - 1 : prev.scrolls
     }));
 
@@ -1552,9 +1598,13 @@ export default function App() {
   };
 
   const buyScroll = () => {
-    if (stats.gold >= SCROLL_PRICE) {
-      setStats(prev => ({ ...prev, gold: prev.gold - SCROLL_PRICE, scrolls: prev.scrolls + 1 }));
-      addLog('shop', '강화 주문서 구매 완료', `-${SCROLL_PRICE.toLocaleString()}G`);
+    if (isAdmin || stats.gold >= SCROLL_PRICE) {
+      setStats(prev => ({
+        ...prev,
+        gold: isAdmin ? prev.gold : prev.gold - SCROLL_PRICE,
+        scrolls: prev.scrolls + 1
+      }));
+      addLog('shop', '강화 주문서 구매 완료', isAdmin ? '(관리자)' : `-${SCROLL_PRICE.toLocaleString()}G`);
     } else {
       alert(`골드가 부족합니다! ${SCROLL_PRICE.toLocaleString()}G 필요`);
     }
@@ -1563,7 +1613,7 @@ export default function App() {
   // 속성 부여
   const assignElement = (element: ElementType) => {
     const cost = 50000;
-    if (stats.gold < cost) {
+    if (!isAdmin && stats.gold < cost) {
       alert(`골드가 부족합니다! ${cost.toLocaleString()}G 필요`);
       return;
     }
@@ -1572,10 +1622,10 @@ export default function App() {
         return;
       }
     }
-    setStats(prev => ({ ...prev, gold: prev.gold - cost }));
+    setStats(prev => ({ ...prev, gold: isAdmin ? prev.gold : prev.gold - cost }));
     setWeapon(prev => ({ ...prev, element, elementLevel: 0 }));
     setSelectedElement(null);
-    addLog('enhancement', `${ELEMENT_NAMES[element]} 속성 부여 완료`, `-${cost.toLocaleString()}G`);
+    addLog('enhancement', `${ELEMENT_NAMES[element]} 속성 부여 완료`, isAdmin ? '(관리자)' : `-${cost.toLocaleString()}G`);
 
     sendGlobalChatMessage('enhancement',
       `🔮 속성 부여!\n\n` +
@@ -1600,14 +1650,14 @@ export default function App() {
     const currentLevel = weapon.elementLevel || 0;
     const { cost, successChance, maintainChance } = getElementEnhanceConfig(currentLevel);
 
-    if (stats.gold < cost) {
+    if (!isAdmin && stats.gold < cost) {
       alert(`골드가 부족합니다! ${cost.toLocaleString()}G 필요`);
       return;
     }
 
     setIsElementEnhancing(true);
     setShowElementResult(null);
-    setStats(prev => ({ ...prev, gold: prev.gold - cost }));
+    setStats(prev => ({ ...prev, gold: isAdmin ? prev.gold : prev.gold - cost }));
 
     await new Promise(resolve => setTimeout(resolve, 1500));
 
@@ -1869,7 +1919,7 @@ export default function App() {
 
           {/* Password Input */}
           <label className="block text-xs uppercase text-slate-400 font-bold mb-2 ml-1">비밀번호</label>
-          <div className="relative mb-5">
+          <div className="relative mb-4">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
               <Lock size={20} />
             </div>
@@ -1883,6 +1933,33 @@ export default function App() {
               autoComplete="current-password"
             />
           </div>
+
+          {/* Referral Input (Register only) */}
+          {authMode === 'register' && (
+            <>
+              <label className="block text-xs uppercase text-slate-400 font-bold mb-2 ml-1">
+                <span className="text-yellow-400">🎁</span> 추천인 아이디 <span className="text-slate-500 font-normal">(선택)</span>
+              </label>
+              <div className="relative mb-2">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-yellow-500">
+                  <Gift size={20} />
+                </div>
+                <input
+                  type="text"
+                  value={inputReferral}
+                  onChange={(e) => setInputReferral(e.target.value)}
+                  placeholder="추천인 아이디 입력 (없으면 비워두세요)"
+                  className="w-full bg-slate-950/60 border border-yellow-500/30 rounded-2xl py-4 pl-12 pr-4 text-base text-white placeholder:text-slate-600 focus:outline-none focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/30 transition-all"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                />
+              </div>
+              <p className="text-xs text-yellow-400/80 mb-5 ml-1 flex items-center gap-1">
+                <Sparkles size={12} />
+                추천인과 회원가입자 모두 200,000G 지급!
+              </p>
+            </>
+          )}
 
           {/* Error Message */}
           {authError && (
@@ -3097,7 +3174,7 @@ export default function App() {
             <div className="flex flex-col gap-1.5">
               <div className="glass-panel px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
                 <Coins size={14} className="text-yellow-400" />
-                <span className="text-xs font-mono font-bold text-yellow-100">{stats.gold.toLocaleString()}</span>
+                <span className="text-xs font-mono font-bold text-yellow-100">{isAdmin ? '∞' : stats.gold.toLocaleString()}</span>
               </div>
               <div className="glass-panel px-2.5 py-1.5 rounded-lg flex items-center gap-1.5">
                 <ScrollText size={14} className="text-blue-400" />

@@ -311,13 +311,16 @@ export const MiniWeaponCard: React.FC<{ weapon: Weapon; onClick?: () => void }> 
         <div className={`absolute top-0.5 right-0.5 px-1.5 py-0.5 rounded text-[8px] font-bold ${style.badge} z-20`}>
           +{weapon.level}
         </div>
-        {/* Element indicator */}
+        {/* Element indicator - 우측 상단 (레벨 아래) */}
         {weapon.element && weapon.element !== ElementType.NONE && (
           <div
-            className="absolute bottom-0.5 left-0.5 p-0.5 rounded z-20"
+            className="absolute top-5 right-0.5 px-1 py-0.5 rounded text-[8px] font-bold flex items-center gap-0.5 z-20"
             style={{ backgroundColor: elementStyle?.glowColor.replace('0.8', '0.6') }}
           >
-            <ElementIcon element={weapon.element} size={10} className="text-white" />
+            <ElementIcon element={weapon.element} size={8} className="text-white" />
+            {weapon.elementLevel && weapon.elementLevel > 0 && (
+              <span className="text-white font-mono">+{weapon.elementLevel}</span>
+            )}
           </div>
         )}
       </div>
@@ -401,16 +404,15 @@ export const ChatWeaponCard: React.FC<{ weapon: Weapon }> = ({ weapon }) => {
           <WeaponIcon type={weapon.type} className={`w-16 h-16 ${style.iconColor} hidden relative z-10 weapon-icon-fallback`} style={{ filter: `drop-shadow(0 0 12px currentColor)` }} />
         </WeaponElementEffect>
 
-        {/* Element Badge in chat card */}
+        {/* Element Badge in chat card - 우측 상단 */}
         {weapon.element && weapon.element !== ElementType.NONE && (
           <div
-            className={`absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold shadow-lg z-20 flex items-center gap-1 border ${elementStyle?.borderColor}`}
+            className={`absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold shadow-lg z-20 flex items-center gap-1 border ${elementStyle?.borderColor}`}
             style={{
               backgroundColor: elementStyle?.glowColor.replace('0.8', '0.4'),
             }}
           >
             <ElementIcon element={weapon.element} size={10} className={elementStyle?.color} />
-            <span className={elementStyle?.color}>{ELEMENT_NAMES_KR[weapon.element]}</span>
             {elementLevel > 0 && (
               <span className={`${elementStyle?.color} font-mono`}>+{elementLevel}</span>
             )}
@@ -507,17 +509,16 @@ export const WeaponCard: React.FC<WeaponCardProps> = ({ weapon, showStats = true
           {TIER_NAMES_KR[tier]}
         </div>
 
-        {/* Element Badge */}
+        {/* Element Badge - 우측 상단 (레벨 배지 아래) */}
         {weapon.element && weapon.element !== ElementType.NONE && (
           <div
-            className={`absolute bottom-4 left-4 px-3 py-1.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-md z-20 flex items-center gap-1.5 border ${elementStyle?.borderColor}`}
+            className={`absolute top-14 right-4 px-2.5 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-md z-20 flex items-center gap-1 border ${elementStyle?.borderColor}`}
             style={{
               backgroundColor: elementStyle?.glowColor.replace('0.8', '0.3'),
               boxShadow: `0 0 12px ${elementStyle?.glowColor}`
             }}
           >
-            <ElementIcon element={weapon.element} size={14} className={elementStyle?.color} />
-            <span className={elementStyle?.color}>{ELEMENT_NAMES_KR[weapon.element]}</span>
+            <ElementIcon element={weapon.element} size={12} className={elementStyle?.color} />
             {elementLevel > 0 && (
               <span className={`${elementStyle?.color} font-mono`}>+{elementLevel}</span>
             )}
