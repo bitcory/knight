@@ -1490,14 +1490,6 @@ export default function App() {
             <span>10% 확률로 행운의 여신이 강림하여 +3단계 강화!</span>
           </div>
 
-          {/* 랭킹 1위 패널티 경고 */}
-          {isTopWinner && (
-            <div className="mt-3 flex items-center gap-3 text-sm text-orange-400 bg-orange-950/30 p-3 rounded-xl border border-orange-900/50">
-              <Trophy size={18} className="shrink-0" />
-              <span>승리 랭킹 1위! 강화 확률이 약간 감소합니다.</span>
-            </div>
-          )}
-
           {/* 파괴 경고 */}
           {config.destroyChance > 0 && (
             <div className="mt-3 flex items-center gap-3 text-sm text-rose-400 bg-rose-950/30 p-3 rounded-xl border border-rose-900/50">
