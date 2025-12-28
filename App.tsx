@@ -1914,24 +1914,39 @@ export default function App() {
                 💡 무기 상성은 승률에 ±8% 영향을 줍니다
               </div>
 
-              {/* 무기 상성 이미지 */}
+              {/* 무기 등급별 이미지 */}
               <div className="mt-4 pt-3 border-t border-slate-700/50">
-                <p className="text-xs text-slate-400 mb-2 text-center">무기 상성 순환</p>
-                <div className="flex items-center justify-center gap-1">
-                  {[WeaponType.SWORD, WeaponType.SPEAR, WeaponType.AXE, WeaponType.HAMMER, WeaponType.SWORD].map((type, idx) => (
-                    <React.Fragment key={idx}>
-                      <div className={`w-10 h-10 flex items-center justify-center rounded-lg ${showWeaponGuide === type ? 'bg-blue-500/20 ring-2 ring-blue-500' : 'bg-slate-700/50'}`}>
-                        <img
-                          src={`/weapons/${type.toLowerCase()}_mythic.png`}
-                          alt={type}
-                          className="w-8 h-8 object-contain"
-                        />
+                <p className="text-xs text-slate-400 mb-3 text-center">등급별 외형</p>
+                <div className="grid grid-cols-5 gap-2">
+                  {['common', 'rare', 'epic', 'legendary', 'mythic'].map((rarity) => {
+                    const rarityNames: Record<string, string> = {
+                      common: '일반',
+                      rare: '희귀',
+                      epic: '영웅',
+                      legendary: '전설',
+                      mythic: '신화'
+                    };
+                    const rarityColors: Record<string, string> = {
+                      common: 'text-slate-400',
+                      rare: 'text-blue-400',
+                      epic: 'text-purple-400',
+                      legendary: 'text-yellow-400',
+                      mythic: 'text-red-400'
+                    };
+                    return (
+                      <div key={rarity} className="flex flex-col items-center">
+                        <div className="w-12 h-12 bg-slate-700/50 rounded-lg flex items-center justify-center mb-1">
+                          <img
+                            src={`/weapons/${showWeaponGuide!.toLowerCase()}_${rarity}.png`}
+                            alt={rarityNames[rarity]}
+                            className="w-10 h-10 object-contain"
+                          />
+                        </div>
+                        <span className={`text-[10px] font-bold ${rarityColors[rarity]}`}>{rarityNames[rarity]}</span>
                       </div>
-                      {idx < 4 && <span className="text-slate-500 text-lg">→</span>}
-                    </React.Fragment>
-                  ))}
+                    );
+                  })}
                 </div>
-                <p className="text-[10px] text-slate-600 mt-2 text-center">검 → 창 → 도끼 → 망치 → 검</p>
               </div>
             </div>
           </div>
