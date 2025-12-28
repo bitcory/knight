@@ -686,7 +686,7 @@ export default function App() {
           // 귓속말 알림
           if (latestMsg.type === 'whisper' && latestMsg.whisperTo === stats.username) {
             mentionSoundRef.current?.play().catch(() => {});
-            if (Notification.permission === 'granted') {
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
               new Notification('🤫 귓속말', {
                 body: `${latestMsg.username}: ${latestMsg.content}`,
                 icon: '/favicon.ico'
@@ -696,7 +696,7 @@ export default function App() {
           // 멘션 알림
           else if (latestMsg.content && latestMsg.content.includes(`@${stats.username}`)) {
             mentionSoundRef.current?.play().catch(() => {});
-            if (Notification.permission === 'granted') {
+            if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
               new Notification('멘션 알림', {
                 body: `${latestMsg.username}: ${latestMsg.content}`,
                 icon: '/favicon.ico'
@@ -714,8 +714,8 @@ export default function App() {
       setGlobalMessages(messages);
     }, 100);
 
-    // 브라우저 알림 권한 요청
-    if (Notification.permission === 'default') {
+    // 브라우저 알림 권한 요청 (Notification API 지원 브라우저만)
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
       Notification.requestPermission();
     }
 
