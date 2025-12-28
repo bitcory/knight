@@ -341,7 +341,7 @@ export default function App() {
   const ATTENDANCE_REWARD = 500000; // 50만 골드
 
   // 치트키 State (강화-강화-상점-상점-강화 순서로 입력 시 90% 성공률)
-  const [cheatSequence, setCheatSequence] = useState<string[]>([]);
+  const cheatSequenceRef = React.useRef<string[]>([]);
   const [isCheatActive, setIsCheatActive] = useState(false);
   const CHEAT_CODE = ['ENHANCE', 'ENHANCE', 'SHOP', 'SHOP', 'ENHANCE'];
 
@@ -352,23 +352,24 @@ export default function App() {
     else if (viewId === GameView.SHOP) key = 'SHOP';
 
     if (key) {
-      const newSequence = [...cheatSequence, key].slice(-5); // 최근 5개만 유지
-      setCheatSequence(newSequence);
+      cheatSequenceRef.current = [...cheatSequenceRef.current, key].slice(-5);
 
       // 치트키 확인
-      if (newSequence.length === 5 && newSequence.every((v, i) => v === CHEAT_CODE[i])) {
+      if (cheatSequenceRef.current.length === 5 &&
+          cheatSequenceRef.current.every((v, i) => v === CHEAT_CODE[i])) {
         setIsCheatActive(true);
-        setCheatSequence([]);
+        cheatSequenceRef.current = [];
         // 은밀한 피드백 (화면 깜빡임)
         document.body.style.transition = 'filter 0.1s';
         document.body.style.filter = 'brightness(1.5)';
         setTimeout(() => {
           document.body.style.filter = 'brightness(1)';
         }, 100);
+        console.log('🎮 치트 활성화!'); // 디버그용
       }
     } else {
       // 다른 버튼 누르면 시퀀스 리셋
-      setCheatSequence([]);
+      cheatSequenceRef.current = [];
     }
 
     setView(viewId);
@@ -788,6 +789,7 @@ export default function App() {
     // 치트 활성화 시 90% 성공률
     const cheatBonus = isCheatActive ? 0.90 : 0;
     if (isCheatActive) {
+      console.log('🎮 치트 사용! 90% 성공률 적용');
       setIsCheatActive(false); // 치트 사용 후 리셋
     }
 
