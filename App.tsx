@@ -661,7 +661,7 @@ export default function App() {
 
   // Login State
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [inputEmail, setInputEmail] = useState('');
+  const [inputId, setInputId] = useState(''); // 아이디 (내부적으로 @knight.game 이메일로 변환)
   const [inputUsername, setInputUsername] = useState('');
   const [inputPassword, setInputPassword] = useState('');
   const [authError, setAuthError] = useState('');
@@ -1094,6 +1094,9 @@ export default function App() {
 
   // --- Actions ---
 
+  // 아이디를 이메일 형식으로 변환
+  const idToEmail = (id: string) => `${id.toLowerCase()}@knight.game`;
+
   const handleRegister = async () => {
     if (!firebaseConfigured) {
       setAuthError('Firebase가 설정되지 않았습니다. .env 파일을 확인해주세요.');
@@ -1101,8 +1104,16 @@ export default function App() {
     }
 
     setAuthError('');
-    if (!inputEmail.trim() || !inputPassword.trim() || !inputUsername.trim()) {
+    if (!inputId.trim() || !inputPassword.trim() || !inputUsername.trim()) {
       setAuthError('모든 필드를 입력해주세요.');
+      return;
+    }
+    if (inputId.trim().length < 6) {
+      setAuthError('아이디는 6자 이상으로 입력해주세요.');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(inputId.trim())) {
+      setAuthError('아이디는 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.');
       return;
     }
     if (inputUsername.length < 2 || inputUsername.length > 12) {
@@ -1116,7 +1127,8 @@ export default function App() {
 
     setAuthLoading(true);
     try {
-      await registerUser(inputEmail.trim(), inputPassword, inputUsername.trim());
+      const fakeEmail = idToEmail(inputId.trim());
+      await registerUser(fakeEmail, inputPassword, inputUsername.trim());
       // Firebase Auth 상태 변경으로 자동 로그인됨
       setTimeout(() => {
         sendGlobalChatMessage('system', `🎉 ${inputUsername.trim()}님이 새로운 기사로 등록했습니다!`);
@@ -1124,9 +1136,7 @@ export default function App() {
     } catch (error: any) {
       console.error('Register error:', error);
       if (error.code === 'auth/email-already-in-use') {
-        setAuthError('이미 사용 중인 이메일입니다.');
-      } else if (error.code === 'auth/invalid-email') {
-        setAuthError('유효하지 않은 이메일 형식입니다.');
+        setAuthError('이미 사용 중인 아이디입니다.');
       } else if (error.code === 'auth/weak-password') {
         setAuthError('비밀번호가 너무 약합니다.');
       } else {
@@ -1144,21 +1154,24 @@ export default function App() {
     }
 
     setAuthError('');
-    if (!inputEmail.trim() || !inputPassword.trim()) {
-      setAuthError('이메일과 비밀번호를 입력해주세요.');
+    if (!inputId.trim() || !inputPassword.trim()) {
+      setAuthError('아이디와 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (inputId.trim().length < 6) {
+      setAuthError('아이디는 6자 이상입니다.');
       return;
     }
 
     setAuthLoading(true);
     try {
-      await loginUser(inputEmail.trim(), inputPassword);
+      const fakeEmail = idToEmail(inputId.trim());
+      await loginUser(fakeEmail, inputPassword);
       // Firebase Auth 상태 변경으로 자동 로그인됨
     } catch (error: any) {
       console.error('Login error:', error);
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        setAuthError('이메일 또는 비밀번호가 일치하지 않습니다.');
-      } else if (error.code === 'auth/invalid-email') {
-        setAuthError('유효하지 않은 이메일 형식입니다.');
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        setAuthError('아이디 또는 비밀번호가 일치하지 않습니다.');
       } else {
         setAuthError('로그인 실패: ' + error.message);
       }
@@ -1730,20 +1743,21 @@ export default function App() {
             </button>
           </div>
 
-          {/* Email Input */}
-          <label className="block text-xs uppercase text-slate-400 font-bold mb-2 ml-1">이메일</label>
+          {/* ID Input */}
+          <label className="block text-xs uppercase text-slate-400 font-bold mb-2 ml-1">아이디</label>
           <div className="relative mb-4">
             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
               <UserIcon size={20} />
             </div>
             <input
-              type="email"
-              value={inputEmail}
-              onChange={(e) => setInputEmail(e.target.value)}
-              placeholder="이메일 입력..."
+              type="text"
+              value={inputId}
+              onChange={(e) => setInputId(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+              placeholder="아이디 입력 (6자 이상, 영문/숫자)..."
               className="w-full bg-slate-950/60 border border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-base text-white placeholder:text-slate-600 focus:outline-none focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/30 transition-all"
-              autoComplete="email"
+              autoComplete="username"
               autoCapitalize="off"
+              maxLength={20}
             />
           </div>
 
