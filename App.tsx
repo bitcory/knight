@@ -1541,17 +1541,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* 상성표 */}
-        <div className="glass-panel p-3 rounded-xl">
-          <div className="text-xs text-slate-400 mb-2 text-center font-bold">⚔️ 무기 상성표</div>
-          <div className="flex justify-center gap-3 text-xs">
-            <span className="text-slate-300">검→창</span>
-            <span className="text-slate-300">창→도끼</span>
-            <span className="text-slate-300">도끼→망치</span>
-            <span className="text-slate-300">망치→검</span>
-          </div>
-        </div>
-
         {/* Opponent List */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
