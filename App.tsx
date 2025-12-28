@@ -65,6 +65,8 @@ import {
   clearAllChatMessages,
   clearOldChatMessages,
   clearAllDataExceptAdmin,
+  updateLastLogin,
+  deleteInactiveUsers,
   GlobalChatMessage,
   UserProfile
 } from './services/firebase';
@@ -785,6 +787,9 @@ export default function App() {
         setUserProfile(userProfileData);
         setStats(prev => ({ ...prev, username: userProfileData.username }));
 
+        // 마지막 로그인 시간 업데이트
+        await updateLastLogin(user.uid);
+
         if (gameData) {
           setStats(gameData.stats);
           setWeapon(gameData.weapon);
@@ -1069,22 +1074,37 @@ export default function App() {
     }
   }, [firebaseUser]);
 
-  // 관리자: 주간 채팅 자동 정리 (7일 이상 된 메시지 삭제)
+  // 관리자: 자동 정리 (채팅 7일, 비활성 계정 2일)
   useEffect(() => {
     if (!firebaseUser || !isAdmin) return;
 
-    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-    const LAST_CLEANUP_KEY = 'lastChatCleanup';
-    const lastCleanup = parseInt(localStorage.getItem(LAST_CLEANUP_KEY) || '0', 10);
+    const DAY_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
 
-    if (now - lastCleanup >= WEEK_MS) {
-      // 일주일이 지났으면 정리 실행
+    // 채팅 주간 정리 (7일 이상 된 메시지)
+    const LAST_CHAT_CLEANUP_KEY = 'lastChatCleanup';
+    const lastChatCleanup = parseInt(localStorage.getItem(LAST_CHAT_CLEANUP_KEY) || '0', 10);
+    if (now - lastChatCleanup >= 7 * DAY_MS) {
       clearOldChatMessages(7).then((count) => {
         if (count > 0) {
           console.log(`[자동 정리] ${count}개의 오래된 채팅 메시지 삭제됨`);
         }
-        localStorage.setItem(LAST_CLEANUP_KEY, now.toString());
+        localStorage.setItem(LAST_CHAT_CLEANUP_KEY, now.toString());
+      }).catch(console.error);
+    }
+
+    // 비활성 계정 정리 (2일 이상 미접속) - 매일 1회 실행
+    const LAST_INACTIVE_CLEANUP_KEY = 'lastInactiveCleanup';
+    const lastInactiveCleanup = parseInt(localStorage.getItem(LAST_INACTIVE_CLEANUP_KEY) || '0', 10);
+    if (now - lastInactiveCleanup >= DAY_MS) {
+      deleteInactiveUsers(2, ADMIN_EMAILS).then((result) => {
+        if (result.users > 0) {
+          console.log(`[자동 정리] ${result.users}개의 비활성 계정 삭제됨`);
+          sendGlobalChatMessage('system',
+            `🧹 ${result.users}개의 비활성 계정이 정리되었습니다. (2일 이상 미접속)`
+          );
+        }
+        localStorage.setItem(LAST_INACTIVE_CLEANUP_KEY, now.toString());
       }).catch(console.error);
     }
   }, [firebaseUser, isAdmin]);
@@ -2836,6 +2856,7 @@ export default function App() {
         <div className="text-center py-2">
           <h2 className="text-lg font-bold text-white">설정</h2>
           <p className="text-xs text-slate-500">{firebaseUser?.email}</p>
+          <p className="text-xs text-red-500 font-bold mt-1 animate-pulse">⚠️ 2일 이상 미접속시 계정 강제삭제!!</p>
         </div>
 
         {profileMessage && (
@@ -3277,38 +3298,50 @@ export default function App() {
       )}
 
       {/* Bottom Fixed Section */}
-      <div className={`flex-shrink-0 bg-slate-950 border-t border-white/10 ${isFrame ? '' : ''}`}>
+      <div className={`flex-shrink-0 bg-slate-950/95 backdrop-blur-sm border-t border-white/10 ${isFrame ? '' : ''}`}>
         {/* Action Buttons */}
-        <div className="px-4 py-2">
-          <div className="flex gap-2">
+        <div className="px-3 py-2">
+          <div className="flex gap-1.5">
+            {/* 강화 버튼 */}
             <button
               onClick={handleEnhance}
               disabled={isEnhancing}
-              className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 shadow-lg"
+              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50 shadow-lg shadow-purple-900/40 border border-purple-400/20"
             >
-              <Hammer size={18} />
-              강화
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
+              <Hammer size={18} className="relative z-10 drop-shadow-md" />
+              <span className="relative z-10 drop-shadow-md">강화</span>
             </button>
+            {/* 속성 버튼 */}
             <button
               onClick={() => setView(GameView.ELEMENT)}
-              className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
+              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-lg shadow-blue-900/40 border border-cyan-400/20"
             >
-              <Sparkles size={18} />
-              속성
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
+              <Sparkles size={18} className="relative z-10 drop-shadow-md" />
+              <span className="relative z-10 drop-shadow-md">속성</span>
             </button>
+            {/* 전투 버튼 */}
             <button
               onClick={() => setView(GameView.BATTLE)}
-              className="flex-1 bg-gradient-to-r from-rose-600 to-orange-600 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
+              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-rose-500 via-red-600 to-orange-600 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-lg shadow-red-900/40 border border-rose-400/20"
             >
-              <Swords size={18} />
-              전투
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
+              <Swords size={18} className="relative z-10 drop-shadow-md" />
+              <span className="relative z-10 drop-shadow-md">전투</span>
             </button>
+            {/* 자랑하기 버튼 */}
             <button
               onClick={handleShowOff}
-              className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white px-3 py-3 rounded-xl font-bold text-sm flex items-center justify-center active:scale-95 transition-all shadow-lg"
+              className="relative overflow-hidden group bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 text-white px-4 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center active:scale-[0.97] transition-all shadow-lg shadow-amber-900/40 border border-yellow-400/30"
               title="자랑하기"
             >
-              <Trophy size={18} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
+              <Trophy size={18} className="relative z-10 drop-shadow-md" />
             </button>
           </div>
         </div>

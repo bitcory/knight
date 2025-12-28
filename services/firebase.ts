@@ -82,6 +82,7 @@ export interface UserProfile {
   email: string;
   profileImage?: string; // base64 encoded image
   lastUsernameChange?: number; // timestamp of last username change
+  lastLoginAt?: number; // timestamp of last login
 }
 
 export interface GameData {
@@ -313,6 +314,47 @@ export const clearAllDataExceptAdmin = async (adminUid: string): Promise<{ users
     if (document.id !== adminUid) {
       await deleteDoc(doc(db, 'gameData', document.id));
       gameDataDeleted++;
+    }
+  }
+
+  return { users: usersDeleted, gameData: gameDataDeleted };
+};
+
+// 마지막 로그인 시간 업데이트
+export const updateLastLogin = async (uid: string) => {
+  await updateDoc(doc(db, 'users', uid), {
+    lastLoginAt: Date.now()
+  });
+};
+
+// 비활성 계정 삭제 (N일 이상 미접속)
+export const deleteInactiveUsers = async (daysInactive: number, adminEmails: string[]): Promise<{ users: number; gameData: number }> => {
+  const cutoffTime = Date.now() - (daysInactive * 24 * 60 * 60 * 1000);
+  let usersDeleted = 0;
+  let gameDataDeleted = 0;
+
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+
+  for (const document of usersSnapshot.docs) {
+    const userData = document.data() as UserProfile;
+
+    // 관리자 계정은 삭제하지 않음
+    if (adminEmails.includes(userData.email)) continue;
+
+    // lastLoginAt이 없거나 cutoffTime보다 오래된 경우 삭제
+    const lastLogin = userData.lastLoginAt || 0;
+
+    if (lastLogin < cutoffTime) {
+      // users 문서 삭제
+      await deleteDoc(doc(db, 'users', document.id));
+      usersDeleted++;
+
+      // gameData 문서도 삭제
+      const gameDataDoc = await getDoc(doc(db, 'gameData', document.id));
+      if (gameDataDoc.exists()) {
+        await deleteDoc(doc(db, 'gameData', document.id));
+        gameDataDeleted++;
+      }
     }
   }
 
