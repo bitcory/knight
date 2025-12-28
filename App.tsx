@@ -216,6 +216,10 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
   const [searchText, setSearchText] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  // 고정 모드: 'none' | 'mention' | 'whisper'
+  const [fixedMode, setFixedMode] = useState<'none' | 'mention' | 'whisper'>('none');
+  const [fixedTarget, setFixedTarget] = useState<string>('');
+  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   // 검색어에 맞는 유저 필터링
@@ -223,9 +227,39 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
     u.toLowerCase().includes(searchText.toLowerCase())
   ).slice(0, 5);
 
+  // 모드 버튼 클릭 시 유저 선택 드롭다운 표시
+  const handleModeClick = (mode: 'mention' | 'whisper') => {
+    if (fixedMode === mode && fixedTarget) {
+      // 같은 모드 다시 클릭하면 해제
+      setFixedMode('none');
+      setFixedTarget('');
+      setShowModeDropdown(false);
+    } else {
+      setDropdownType(mode);
+      setShowModeDropdown(true);
+      setSearchText('');
+      setSelectedIndex(0);
+    }
+  };
+
+  // 모드 드롭다운에서 유저 선택
+  const selectModeTarget = (username: string) => {
+    setFixedMode(dropdownType);
+    setFixedTarget(username);
+    setShowModeDropdown(false);
+    setSearchText('');
+    inputRef.current?.focus();
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setInput(value);
+
+    // 고정 모드가 설정되어 있으면 자동 감지 안함
+    if (fixedMode !== 'none') {
+      setShowDropdown(false);
+      return;
+    }
 
     // / 귓속말 감지 (맨 앞에서 시작하는 경우)
     if (value.startsWith('/')) {
@@ -296,6 +330,20 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
     const text = input.trim();
     if (!text) return;
 
+    // 고정 모드가 설정되어 있으면 해당 모드로 전송
+    if (fixedMode === 'whisper' && fixedTarget) {
+      setInput('');
+      onSubmit(text, fixedTarget);
+      return;
+    }
+
+    if (fixedMode === 'mention' && fixedTarget) {
+      const messageWithMention = `@${fixedTarget} ${text}`;
+      setInput('');
+      onSubmit(messageWithMention);
+      return;
+    }
+
     // 귓속말 파싱: /유저이름 메시지
     if (text.startsWith('/')) {
       const spaceIndex = text.indexOf(' ');
@@ -316,9 +364,10 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
     onSubmit(text);
   };
 
-  // 귓속말 모드인지 확인
-  const isWhisperMode = input.startsWith('/') && input.indexOf(' ') > 1;
-  const whisperTarget = isWhisperMode ? input.slice(1, input.indexOf(' ')) : null;
+  // 귓속말 모드인지 확인 (고정 모드 또는 수동 입력)
+  const isWhisperMode = fixedMode === 'whisper' || (input.startsWith('/') && input.indexOf(' ') > 1);
+  const isMentionMode = fixedMode === 'mention';
+  const whisperTarget = fixedMode === 'whisper' ? fixedTarget : (input.startsWith('/') && input.indexOf(' ') > 1 ? input.slice(1, input.indexOf(' ')) : null);
 
   return (
     <div className="relative">
@@ -347,26 +396,109 @@ const ChatInput: React.FC<{ onSubmit: (text: string, whisperTo?: string) => void
         </div>
       )}
 
-      {/* 귓속말 모드 표시 */}
-      {isWhisperMode && whisperTarget && (
-        <div className="absolute -top-6 left-0 text-xs text-pink-400 flex items-center gap-1">
-          <span>🤫</span>
-          <span>{whisperTarget}에게 귓속말</span>
+      {/* 모드 선택 드롭다운 - 바깥 클릭 시 닫기 */}
+      {showModeDropdown && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => { setShowModeDropdown(false); setSearchText(''); }} />
+          <div className="absolute bottom-full left-0 right-0 mb-2 bg-slate-800 border border-slate-700 rounded-xl overflow-hidden shadow-xl z-50">
+          <div className={`px-3 py-1.5 text-xs font-bold border-b border-slate-700 ${dropdownType === 'whisper' ? 'text-pink-400 bg-pink-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
+            {dropdownType === 'whisper' ? '🤫 귓속말 대상 선택' : '@ 멘션 대상 선택'}
+          </div>
+          {/* 검색창 */}
+          <div className="p-2 border-b border-slate-700">
+            <input
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="사용자 검색..."
+              autoFocus
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {userList
+              .filter(u => u.toLowerCase().includes(searchText.toLowerCase()))
+              .slice(0, 10)
+              .map((user) => (
+              <button
+                key={user}
+                onClick={() => selectModeTarget(user)}
+                className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-colors text-slate-300 hover:bg-slate-700`}
+              >
+                <span className={dropdownType === 'whisper' ? 'text-pink-400' : 'text-blue-400'}>
+                  {dropdownType === 'whisper' ? '/' : '@'}
+                </span>
+                <span>{user}</span>
+              </button>
+            ))}
+            {userList.filter(u => u.toLowerCase().includes(searchText.toLowerCase())).length === 0 && (
+              <div className="px-4 py-3 text-sm text-slate-500 text-center">
+                검색 결과가 없습니다
+              </div>
+            )}
+          </div>
+          {/* 닫기 버튼 */}
+          <button
+            onClick={() => { setShowModeDropdown(false); setSearchText(''); }}
+            className="w-full px-4 py-2 text-xs text-slate-500 hover:text-slate-300 border-t border-slate-700 hover:bg-slate-700/50"
+          >
+            닫기
+          </button>
+        </div>
+        </>
+      )}
+
+      {/* 고정 모드 표시 */}
+      {fixedMode !== 'none' && fixedTarget && (
+        <div className={`absolute -top-7 left-0 text-xs flex items-center gap-1 ${fixedMode === 'whisper' ? 'text-pink-400' : 'text-blue-400'}`}>
+          <span>{fixedMode === 'whisper' ? '🤫' : '@'}</span>
+          <span>{fixedTarget}{fixedMode === 'whisper' ? '에게 귓속말' : ' 멘션'} 모드</span>
+          <button
+            onClick={() => { setFixedMode('none'); setFixedTarget(''); }}
+            className="ml-1 text-slate-500 hover:text-white"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       <div className="flex gap-2">
+        {/* 모드 버튼 */}
+        <div className="flex">
+          <button
+            onClick={() => handleModeClick('mention')}
+            className={`px-3 py-3 rounded-l-2xl flex items-center justify-center active:scale-95 transition-all border-r border-slate-600 ${
+              fixedMode === 'mention'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+            }`}
+          >
+            <span className="font-bold text-sm">@</span>
+          </button>
+          <button
+            onClick={() => handleModeClick('whisper')}
+            className={`px-3 py-3 rounded-r-2xl flex items-center justify-center active:scale-95 transition-all ${
+              fixedMode === 'whisper'
+                ? 'bg-pink-600 text-white'
+                : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+            }`}
+          >
+            <span className="font-bold text-sm">/</span>
+          </button>
+        </div>
         <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder="채팅 (@멘션 /귓속말)"
+          placeholder={fixedMode === 'whisper' ? `${fixedTarget}에게 귓속말...` : fixedMode === 'mention' ? `@${fixedTarget} 멘션...` : '채팅 (@멘션 /귓속말)'}
           className={`flex-1 bg-slate-800/80 border rounded-2xl py-3 px-4 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 transition-all ${
             isWhisperMode
               ? 'border-pink-500/50 focus:border-pink-500/50 focus:ring-pink-500/20'
-              : 'border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20'
+              : isMentionMode
+                ? 'border-blue-500/50 focus:border-blue-500/50 focus:ring-blue-500/20'
+                : 'border-slate-700 focus:border-blue-500/50 focus:ring-blue-500/20'
           }`}
         />
         <button
