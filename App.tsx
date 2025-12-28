@@ -413,37 +413,51 @@ export default function App() {
   // Auto scroll to bottom when messages change
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
 
-  // 스크롤을 최하단으로 이동하는 함수 (iOS 호환)
+  // 스크롤을 최하단으로 이동하는 함수 (iOS Safari 호환)
   const scrollChatToBottom = React.useCallback((force: boolean = false) => {
     const doScroll = () => {
-      try {
-        // 방법 1: 마커 요소의 offsetTop 사용 (iOS에서 가장 확실)
-        const chatEnd = document.getElementById('chat-end-marker');
-        const container = document.getElementById('chat-scroll-container');
+      requestAnimationFrame(() => {
+        try {
+          const container = document.getElementById('chat-scroll-container');
+          if (!container) return;
 
-        if (container && chatEnd) {
-          // iOS Safari: offsetTop 기반 스크롤
-          const targetScroll = chatEnd.offsetTop;
-          container.scrollTop = targetScroll;
+          // iOS Safari: scrollTo 사용
+          const scrollHeight = container.scrollHeight;
+          const clientHeight = container.clientHeight;
+          const maxScroll = scrollHeight - clientHeight;
 
-          // 백업: scrollIntoView
-          chatEnd.scrollIntoView(false);
-        } else if (container) {
-          container.scrollTop = container.scrollHeight;
+          // 방법 1: scrollTo API (iOS Safari에서 더 잘 작동)
+          if (typeof container.scrollTo === 'function') {
+            container.scrollTo({
+              top: maxScroll + 1000,
+              behavior: 'auto'
+            });
+          }
+
+          // 방법 2: 직접 scrollTop 설정 (백업)
+          container.scrollTop = maxScroll + 1000;
+
+          // 방법 3: scrollIntoView (추가 백업)
+          const chatEnd = document.getElementById('chat-end-marker');
+          if (chatEnd) {
+            chatEnd.scrollIntoView({ block: 'end', behavior: 'auto' });
+          }
+        } catch (e) {
+          // 에러 무시
         }
-      } catch (e) {
-        // 에러 무시
-      }
+      });
     };
 
-    // 즉시 실행 + 여러 번 재시도
+    // 즉시 실행 + 여러 번 재시도 (iOS에서 렌더링 타이밍 이슈 해결)
     doScroll();
-    setTimeout(doScroll, 100);
+    setTimeout(doScroll, 50);
+    setTimeout(doScroll, 150);
     setTimeout(doScroll, 300);
     if (force) {
       setTimeout(doScroll, 500);
       setTimeout(doScroll, 800);
       setTimeout(doScroll, 1200);
+      setTimeout(doScroll, 2000);
     }
   }, []);
 
