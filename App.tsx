@@ -340,6 +340,40 @@ export default function App() {
   const ATTENDANCE_INTERVAL = 4 * 60 * 60 * 1000; // 4시간 (밀리초)
   const ATTENDANCE_REWARD = 500000; // 50만 골드
 
+  // 치트키 State (강화-강화-상점-상점-강화 순서로 입력 시 90% 성공률)
+  const [cheatSequence, setCheatSequence] = useState<string[]>([]);
+  const [isCheatActive, setIsCheatActive] = useState(false);
+  const CHEAT_CODE = ['ENHANCE', 'ENHANCE', 'SHOP', 'SHOP', 'ENHANCE'];
+
+  const handleNavClick = (viewId: GameView) => {
+    // 치트키 시퀀스 추적
+    let key = '';
+    if (viewId === GameView.ENHANCE) key = 'ENHANCE';
+    else if (viewId === GameView.SHOP) key = 'SHOP';
+
+    if (key) {
+      const newSequence = [...cheatSequence, key].slice(-5); // 최근 5개만 유지
+      setCheatSequence(newSequence);
+
+      // 치트키 확인
+      if (newSequence.length === 5 && newSequence.every((v, i) => v === CHEAT_CODE[i])) {
+        setIsCheatActive(true);
+        setCheatSequence([]);
+        // 은밀한 피드백 (화면 깜빡임)
+        document.body.style.transition = 'filter 0.1s';
+        document.body.style.filter = 'brightness(1.5)';
+        setTimeout(() => {
+          document.body.style.filter = 'brightness(1)';
+        }, 100);
+      }
+    } else {
+      // 다른 버튼 누르면 시퀀스 리셋
+      setCheatSequence([]);
+    }
+
+    setView(viewId);
+  };
+
   // Firebase 설정 확인
   const firebaseConfigured = isFirebaseConfigured();
 
@@ -746,8 +780,18 @@ export default function App() {
     // 승리 랭킹 1위 패널티 (-10% 성공 확률)
     const rankPenalty = isTopWinner ? 0.10 : 0;
 
-    const adjustedSuccessChance = Math.min(Math.max(successChance + bonusChance - rankPenalty, 0.05), 0.95);
-    const adjustedDestroyChance = Math.max(destroyChance - bonusChance + (rankPenalty * 0.5), 0);
+    // 치트 활성화 시 90% 성공률
+    const cheatBonus = isCheatActive ? 0.90 : 0;
+    if (isCheatActive) {
+      setIsCheatActive(false); // 치트 사용 후 리셋
+    }
+
+    const adjustedSuccessChance = cheatBonus > 0
+      ? 0.90
+      : Math.min(Math.max(successChance + bonusChance - rankPenalty, 0.05), 0.95);
+    const adjustedDestroyChance = cheatBonus > 0
+      ? 0
+      : Math.max(destroyChance - bonusChance + (rankPenalty * 0.5), 0);
 
     // 🌟 행운의 여신이 등장하면 무조건 성공 + 3단계 상승!
     if (isGoddessAppeared || roll < adjustedSuccessChance) {
@@ -2010,7 +2054,7 @@ export default function App() {
             return (
               <button
                 key={item.id}
-                onClick={() => setView(item.id)}
+                onClick={() => handleNavClick(item.id)}
                 className={`relative flex flex-col items-center justify-center min-w-[72px] h-14 rounded-2xl transition-all duration-200 active:scale-95 ${isActive
                   ? 'text-yellow-400 bg-yellow-500/10'
                   : 'text-slate-500 active:text-slate-300 active:bg-slate-800/50'
