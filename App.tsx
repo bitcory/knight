@@ -543,6 +543,7 @@ export default function App() {
 
   // 멘션 알림 State
   const [allUsernames, setAllUsernames] = useState<string[]>([]);
+  const [userProfilesMap, setUserProfilesMap] = useState<Record<string, UserProfile>>({});
   const mentionSoundRef = React.useRef<HTMLAudioElement | null>(null);
   const lastMessageIdRef = React.useRef<string>('');
 
@@ -901,6 +902,29 @@ export default function App() {
   useEffect(() => {
     if (firebaseUser && view !== GameView.LOGIN) {
       loadOpponents();
+    }
+  }, [firebaseUser]);
+
+  // 유저 프로필 로드 (프로필 이미지 표시용)
+  useEffect(() => {
+    const loadUserProfiles = async () => {
+      try {
+        const users = await getAllUsers();
+        const profilesMap: Record<string, UserProfile> = {};
+        users.forEach(user => {
+          profilesMap[user.uid] = user;
+        });
+        setUserProfilesMap(profilesMap);
+      } catch (error) {
+        console.error('Failed to load user profiles:', error);
+      }
+    };
+
+    if (firebaseUser) {
+      loadUserProfiles();
+      // 30초마다 프로필 업데이트 (새 유저 프로필 이미지 반영)
+      const interval = setInterval(loadUserProfiles, 30000);
+      return () => clearInterval(interval);
     }
   }, [firebaseUser]);
 
@@ -2610,7 +2634,7 @@ export default function App() {
   };
 
   // Chat Message Component
-  const ChatMessageItem: React.FC<{ message: GlobalChatMessage; isOwnMessage: boolean }> = ({ message, isOwnMessage }) => {
+  const ChatMessageItem: React.FC<{ message: GlobalChatMessage; isOwnMessage: boolean; profileImage?: string }> = ({ message, isOwnMessage, profileImage }) => {
     const isSystem = message.type === 'system';
     const isChat = message.type === 'chat';
     const isEnhancement = message.type === 'enhancement';
@@ -2672,14 +2696,24 @@ export default function App() {
       const isFromMe = isOwnMessage;
       return (
         <div className={`flex ${isFromMe ? 'justify-end' : 'justify-start'} mb-3`}>
-          <div className={`max-w-[80%] ${isFromMe ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md'} px-4 py-3 text-sm shadow-lg bg-gradient-to-br from-pink-900/80 to-purple-900/80 border border-pink-500/30`}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-pink-300 text-[10px]">🤫 귓속말</span>
-              <span className="text-xs text-pink-200">
-                {isFromMe ? `→ ${message.whisperTo}` : `← ${message.username}`}
-              </span>
+          <div className={`flex gap-2 max-w-[80%] ${isFromMe ? 'flex-row-reverse' : ''}`}>
+            {/* 프로필 이미지 */}
+            {profileImage ? (
+              <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-pink-500/50" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-600 to-purple-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
+                {message.username[0]?.toUpperCase()}
+              </div>
+            )}
+            <div className={`${isFromMe ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md'} px-4 py-3 text-sm shadow-lg bg-gradient-to-br from-pink-900/80 to-purple-900/80 border border-pink-500/30`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-pink-300 text-[10px]">🤫 귓속말</span>
+                <span className="text-xs text-pink-200">
+                  {isFromMe ? `→ ${message.whisperTo}` : `← ${message.username}`}
+                </span>
+              </div>
+              <div className="whitespace-pre-wrap text-pink-100">{message.content}</div>
             </div>
-            <div className="whitespace-pre-wrap text-pink-100">{message.content}</div>
           </div>
         </div>
       );
@@ -2688,9 +2722,19 @@ export default function App() {
     if (isChat && isOwnMessage) {
       return (
         <div className="flex justify-end mb-3">
-          <div className="max-w-[80%] bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl rounded-br-md px-4 py-3 text-sm text-white shadow-lg">
-            <div className="text-xs text-blue-200 mb-1">{message.username}</div>
-            <div className="whitespace-pre-wrap">{renderContent(message.content)}</div>
+          <div className="flex gap-2 max-w-[80%] flex-row-reverse">
+            {/* 프로필 이미지 */}
+            {profileImage ? (
+              <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-blue-500/50" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
+                {message.username[0]?.toUpperCase()}
+              </div>
+            )}
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl rounded-br-md px-4 py-3 text-sm text-white shadow-lg">
+              <div className="text-xs text-blue-200 mb-1">{message.username}</div>
+              <div className="whitespace-pre-wrap">{renderContent(message.content)}</div>
+            </div>
           </div>
         </div>
       );
@@ -2699,19 +2743,28 @@ export default function App() {
     // Enhancement, Battle, ShowOff, or other user's chat messages
     const isMaintain = isEnhancement && message.metadata?.success === undefined;
 
+    // 아이콘 표시 여부 (강화/전투/자랑은 아이콘 사용)
+    const showIcon = isEnhancement || isBattle || isShowOff;
+
     return (
       <div className={`flex justify-start mb-3 ${isMentioned ? 'animate-pulse' : ''}`}>
         <div className="flex gap-2 max-w-[85%]">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xs ${isEnhancement ? (message.metadata?.success ? 'bg-green-600' : isMaintain ? 'bg-blue-600' : 'bg-red-600') :
-            isBattle ? (message.metadata?.success ? 'bg-yellow-600' : 'bg-slate-600') :
-              isShowOff ? 'bg-gradient-to-br from-yellow-500 to-orange-500' :
-                'bg-gradient-to-br from-purple-600 to-indigo-600'
-            }`}>
-            {isEnhancement ? <Hammer size={16} className="text-white" /> :
-              isBattle ? <Swords size={16} className="text-white" /> :
-                isShowOff ? <Trophy size={16} className="text-white" /> :
-                  message.username[0].toUpperCase()}
-          </div>
+          {showIcon ? (
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-white font-bold text-xs ${isEnhancement ? (message.metadata?.success ? 'bg-green-600' : isMaintain ? 'bg-blue-600' : 'bg-red-600') :
+              isBattle ? (message.metadata?.success ? 'bg-yellow-600' : 'bg-slate-600') :
+                'bg-gradient-to-br from-yellow-500 to-orange-500'
+              }`}>
+              {isEnhancement ? <Hammer size={16} className="text-white" /> :
+                isBattle ? <Swords size={16} className="text-white" /> :
+                  <Trophy size={16} className="text-white" />}
+            </div>
+          ) : profileImage ? (
+            <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-purple-500/50" />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
+              {message.username[0]?.toUpperCase()}
+            </div>
+          )}
           <div className={`rounded-2xl rounded-bl-md px-4 py-3 text-sm shadow-lg ${
             isMentioned ? 'ring-2 ring-yellow-400/50 ' : ''
           }${isEnhancement ? (
@@ -2794,7 +2847,12 @@ export default function App() {
                       return true;
                     })
                     .map((msg) => (
-                    <ChatMessageItem key={msg.id} message={msg} isOwnMessage={msg.uid === firebaseUser?.uid} />
+                    <ChatMessageItem
+                      key={msg.id}
+                      message={msg}
+                      isOwnMessage={msg.uid === firebaseUser?.uid}
+                      profileImage={userProfilesMap[msg.uid]?.profileImage}
+                    />
                   ))}
                   <div id="chat-end-marker" ref={chatEndRef} />
                 </>
