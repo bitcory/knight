@@ -943,28 +943,42 @@ export default function App() {
     // 전투 횟수 증가
     setDailyBattleCount(prev => prev + 1);
 
-    // 전투력 계산
-    const myPower = weapon.baseDamage + (weapon.level * 25) + (weapon.level * weapon.level * 2);
+    // 전투력 계산 (레벨 기반, 레벨당 +30 전투력 + 레벨² 보너스)
+    const myPower = weapon.baseDamage + (weapon.level * 30) + (weapon.level * weapon.level * 3);
     const opponentWeapon = opponent.gameData.weapon;
-    const opponentPower = opponentWeapon.baseDamage + (opponentWeapon.level * 25) + (opponentWeapon.level * opponentWeapon.level * 2);
+    const opponentPower = opponentWeapon.baseDamage + (opponentWeapon.level * 30) + (opponentWeapon.level * opponentWeapon.level * 3);
 
-    // 무기 상성 체크
+    // 레벨 차이 계산
+    const levelGap = weapon.level - opponentWeapon.level;
+
+    // 무기 상성 체크 (약 1.5레벨 가치, ±8%)
     const typeAdvantage = getTypeAdvantage(weapon.type, opponentWeapon.type);
-    const typeBonus = typeAdvantage === 'advantage' ? 0.10 : typeAdvantage === 'disadvantage' ? -0.10 : 0;
+    const typeBonus = typeAdvantage === 'advantage' ? 0.08 : typeAdvantage === 'disadvantage' ? -0.08 : 0;
 
-    // 속성 상성 체크 (비중 축소: 10% → 5%)
+    // 속성 상성 체크 (약 1레벨 가치, ±5%)
     const elementAdvantage = getElementAdvantage(weapon.element, opponentWeapon.element);
     const elementBonus = elementAdvantage === 'advantage' ? 0.05 : elementAdvantage === 'disadvantage' ? -0.05 : 0;
 
-    // 속성 레벨 보너스 (레벨당 0.5% 추가)
+    // 속성 레벨 보너스 (레벨당 0.8%, 최대 ±8%)
     const myElementLevel = weapon.elementLevel || 0;
     const oppElementLevel = opponentWeapon.elementLevel || 0;
-    const elementLevelBonus = (myElementLevel - oppElementLevel) * 0.005;
+    const elementLevelDiff = myElementLevel - oppElementLevel;
+    const elementLevelBonus = Math.max(-0.08, Math.min(0.08, elementLevelDiff * 0.008));
 
-    // 승률 계산 (전투력 차이 + 무기 상성 + 속성 상성 + 속성 레벨)
-    const powerDiff = myPower - opponentPower;
-    let winChance = 0.5 + (powerDiff / (Math.max(myPower, opponentPower) * 2)) + typeBonus + elementBonus + elementLevelBonus;
-    winChance = Math.max(0.1, Math.min(0.9, winChance)); // 10% ~ 90% 범위로 제한
+    // 기본 승률 계산 (레벨 차이에 따른 점진적 증가, 디미니싱 리턴 적용)
+    // 레벨 차이 1당 약 5% 승률 변화 (최대 ±25%)
+    const levelBonus = Math.max(-0.25, Math.min(0.25, levelGap * 0.05));
+
+    // 전투력 차이 보너스 (전투력 비율 기반, 디미니싱 리턴)
+    const powerRatio = myPower / Math.max(opponentPower, 1);
+    const powerBonus = Math.max(-0.15, Math.min(0.15, (powerRatio - 1) * 0.3));
+
+    // 최종 승률 계산
+    // 기본 50% + 레벨 보너스 + 전투력 보너스 + 상성 보너스들
+    let winChance = 0.5 + levelBonus + powerBonus + typeBonus + elementBonus + elementLevelBonus;
+
+    // 승률 범위 제한 (20% ~ 80%) - 항상 역전 가능성 유지
+    winChance = Math.max(0.20, Math.min(0.80, winChance));
 
     const isWin = Math.random() < winChance;
     const baseReward = 100 + (opponentWeapon.level * 20);
