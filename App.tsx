@@ -1696,7 +1696,7 @@ export default function App() {
                     {idx + 1}
                   </span>
                   <span className={`text-sm ${player.isMe ? 'text-yellow-400 font-bold' : 'text-slate-300'}`}>
-                    {player.username} {player.isMe && '(나)'}
+                    {player.username} {player.isMe && `(나 ${idx + 1}위)`}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
