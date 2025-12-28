@@ -303,6 +303,9 @@ export default function App() {
   const [showElementResult, setShowElementResult] = useState<{ success: boolean, message: string } | null>(null);
   const [selectedElement, setSelectedElement] = useState<ElementType | null>(null);
 
+  // 무기 도감 State
+  const [showWeaponGuide, setShowWeaponGuide] = useState<WeaponType | null>(null);
+
   // Firebase Auth State
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -1843,13 +1846,16 @@ export default function App() {
               [WeaponType.SPEAR]: '창'
             };
             const imagePath = `/weapons/${type.toLowerCase()}_mythic.png`;
+            const isSelected = showWeaponGuide === type;
             return (
               <button
                 key={type}
-                onClick={() => resetWeapon(type)}
-                className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden active:scale-95 ${weapon.type === type
-                  ? 'bg-slate-800/50 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.1)]'
-                  : 'bg-slate-900/30 border-slate-800 active:bg-slate-800'
+                onClick={() => setShowWeaponGuide(isSelected ? null : type)}
+                className={`p-3 rounded-2xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden active:scale-95 ${isSelected
+                  ? 'bg-blue-900/30 border-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.2)]'
+                  : weapon.type === type
+                    ? 'bg-slate-800/50 border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.1)]'
+                    : 'bg-slate-900/30 border-slate-800 active:bg-slate-800'
                   }`}
               >
                 {weapon.type === type && <div className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-yellow-500 rounded-full animate-pulse"></div>}
@@ -1858,16 +1864,61 @@ export default function App() {
                     src={imagePath}
                     alt={typeNames[type]}
                     className="h-full w-auto object-contain max-w-full"
-                    style={{ filter: weapon.type === type ? 'drop-shadow(0 0 8px rgba(234,179,8,0.5))' : 'none' }}
+                    style={{ filter: isSelected ? 'drop-shadow(0 0 8px rgba(59,130,246,0.5))' : weapon.type === type ? 'drop-shadow(0 0 8px rgba(234,179,8,0.5))' : 'none' }}
                   />
                 </div>
-                <span className={`font-bold text-sm ${weapon.type === type ? 'text-yellow-100' : 'text-slate-400'}`}>{typeNames[type]}</span>
+                <span className={`font-bold text-sm ${isSelected ? 'text-blue-300' : weapon.type === type ? 'text-yellow-100' : 'text-slate-400'}`}>{typeNames[type]}</span>
               </button>
             );
           })}
         </div>
+
+        {/* 무기 도감 */}
+        {showWeaponGuide && (
+          <div className="mt-4 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50 animate-fade-in">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-blue-400 flex items-center gap-2">
+                <ScrollText size={16} />
+                {showWeaponGuide === WeaponType.SWORD && '검 도감'}
+                {showWeaponGuide === WeaponType.AXE && '도끼 도감'}
+                {showWeaponGuide === WeaponType.HAMMER && '망치 도감'}
+                {showWeaponGuide === WeaponType.SPEAR && '창 도감'}
+              </h4>
+              <button onClick={() => resetWeapon(showWeaponGuide)} className="text-xs bg-emerald-600 active:bg-emerald-700 px-3 py-1.5 rounded-lg font-bold">
+                이 무기로 제작
+              </button>
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-slate-300">
+                <Sword size={14} className="text-green-400" />
+                <span className="text-green-400">유리:</span>
+                <span>
+                  {showWeaponGuide === WeaponType.SWORD && '창 (검으로 창을 쳐내고 접근)'}
+                  {showWeaponGuide === WeaponType.AXE && '망치 (빠른 스윙으로 망치를 압도)'}
+                  {showWeaponGuide === WeaponType.HAMMER && '검 (묵직한 타격으로 검을 부숨)'}
+                  {showWeaponGuide === WeaponType.SPEAR && '도끼 (긴 사거리로 도끼를 제압)'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-300">
+                <Sword size={14} className="text-red-400" />
+                <span className="text-red-400">불리:</span>
+                <span>
+                  {showWeaponGuide === WeaponType.SWORD && '망치 (묵직한 타격에 밀림)'}
+                  {showWeaponGuide === WeaponType.AXE && '창 (긴 사거리에 접근 불가)'}
+                  {showWeaponGuide === WeaponType.HAMMER && '도끼 (빠른 스윙에 대응 불가)'}
+                  {showWeaponGuide === WeaponType.SPEAR && '검 (근접전에서 취약)'}
+                </span>
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-500">
+                💡 무기 상성은 승률에 ±8% 영향을 줍니다
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="text-center text-xs text-slate-600 mt-4">
-          새 무기 제작 시 현재 강화 수치가 초기화됩니다.
+          무기를 눌러 도감을 확인하세요
         </p>
       </div>
     </div>
