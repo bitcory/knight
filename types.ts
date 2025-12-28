@@ -50,7 +50,8 @@ export enum GameView {
   ENHANCE = 'ENHANCE',
   ELEMENT = 'ELEMENT',
   BATTLE = 'BATTLE',
-  SHOP = 'SHOP'
+  SHOP = 'SHOP',
+  PROFILE = 'PROFILE'
 }
 
 export const MAX_LEVEL = 20;

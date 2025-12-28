@@ -78,6 +78,8 @@ export interface UserProfile {
   uid: string;
   username: string;
   email: string;
+  profileImage?: string; // base64 encoded image
+  lastUsernameChange?: number; // timestamp of last username change
 }
 
 export interface GameData {
@@ -92,6 +94,10 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     return docSnap.data() as UserProfile;
   }
   return null;
+};
+
+export const updateUserProfile = async (uid: string, updates: Partial<UserProfile>) => {
+  await updateDoc(doc(db, 'users', uid), updates);
 };
 
 export const getGameData = async (uid: string): Promise<GameData | null> => {

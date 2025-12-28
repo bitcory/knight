@@ -28,7 +28,8 @@ import {
   Sun,
   Moon,
   Ghost,
-  Gift
+  Gift,
+  Camera
 } from 'lucide-react';
 import {
   Weapon,
@@ -50,6 +51,7 @@ import {
   getUserProfile,
   getGameData,
   saveGameData,
+  updateUserProfile,
   sendGlobalMessage,
   subscribeToGlobalChat,
   getRandomOpponent,
@@ -305,6 +307,12 @@ export default function App() {
 
   // 무기 도감 State
   const [showWeaponGuide, setShowWeaponGuide] = useState<WeaponType | null>(null);
+
+  // 프로필 설정 State
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Firebase Auth State
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -1659,13 +1667,14 @@ export default function App() {
 
     // 랭킹 데이터 생성 (나 + 상대들)
     const allPlayers = [
-      { username: stats.username, wins: stats.wins, losses: stats.losses, level: weapon.level, isMe: true },
+      { username: stats.username, wins: stats.wins, losses: stats.losses, level: weapon.level, isMe: true, profileImage: userProfile?.profileImage },
       ...availableOpponents.map(opp => ({
         username: opp.profile.username,
         wins: opp.gameData.stats?.wins || 0,
         losses: opp.gameData.stats?.losses || 0,
         level: opp.gameData.weapon?.level || 0,
-        isMe: false
+        isMe: false,
+        profileImage: opp.profile.profileImage
       }))
     ].sort((a, b) => b.wins - a.wins);
 
@@ -1695,6 +1704,13 @@ export default function App() {
                   <span className={`w-5 text-center font-bold text-xs ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-orange-400' : 'text-slate-500'}`}>
                     {idx + 1}
                   </span>
+                  <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {player.profileImage ? (
+                      <img src={player.profileImage} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <UserIcon size={14} className="text-slate-500" />
+                    )}
+                  </div>
                   <span className={`text-sm ${player.isMe ? 'text-yellow-400 font-bold' : 'text-slate-300'}`}>
                     {player.username}
                   </span>
@@ -1717,6 +1733,13 @@ export default function App() {
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-2xl ${myRank === 1 ? 'bg-yellow-500/20 text-yellow-400' : myRank === 2 ? 'bg-slate-400/20 text-slate-300' : myRank === 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700/50 text-slate-400'}`}>
                   {myRank}
+                </div>
+                <div className="w-10 h-10 rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden flex items-center justify-center flex-shrink-0">
+                  {userProfile?.profileImage ? (
+                    <img src={userProfile.profileImage} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon size={20} className="text-slate-500" />
+                  )}
                 </div>
                 <div>
                   <div className="text-sm font-bold text-white">{stats.username}</div>
@@ -1784,9 +1807,13 @@ export default function App() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold ${isSelected ? 'bg-rose-600' : 'bg-slate-700'
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center overflow-hidden ${isSelected ? 'bg-rose-600 border-2 border-rose-400' : 'bg-slate-700 border-2 border-slate-600'
                           }`}>
-                          {opp.profile.username[0]?.toUpperCase()}
+                          {opp.profile.profileImage ? (
+                            <img src={opp.profile.profileImage} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white font-bold">{opp.profile.username[0]?.toUpperCase()}</span>
+                          )}
                         </div>
                         <div>
                           <div className="text-sm font-bold text-white">{opp.profile.username}</div>
@@ -2025,6 +2052,274 @@ export default function App() {
     </div>
   );
 
+  // Profile/Settings render
+  const renderProfile = () => {
+    // 30일(밀리초) = 30 * 24 * 60 * 60 * 1000
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const lastChange = userProfile?.lastUsernameChange || 0;
+    const now = Date.now();
+    const canChangeName = now - lastChange >= THIRTY_DAYS_MS;
+    const daysRemaining = Math.ceil((THIRTY_DAYS_MS - (now - lastChange)) / (24 * 60 * 60 * 1000));
+
+    const handleUsernameChange = async () => {
+      if (!canChangeName) {
+        setProfileMessage({ type: 'error', text: `이름 변경은 ${daysRemaining}일 후에 가능합니다` });
+        return;
+      }
+      if (!newUsername.trim()) {
+        setProfileMessage({ type: 'error', text: '새 이름을 입력해주세요' });
+        return;
+      }
+      if (newUsername.length < 2 || newUsername.length > 10) {
+        setProfileMessage({ type: 'error', text: '이름은 2~10자로 입력해주세요' });
+        return;
+      }
+      try {
+        // Update username in stats and Firestore
+        const updatedStats = { ...stats, username: newUsername };
+        setStats(updatedStats);
+        if (firebaseUser) {
+          await saveGameData(firebaseUser.uid, updatedStats, weapon);
+          // Update lastUsernameChange timestamp
+          await updateUserProfile(firebaseUser.uid, { username: newUsername, lastUsernameChange: Date.now() });
+          setUserProfile(prev => prev ? { ...prev, username: newUsername, lastUsernameChange: Date.now() } : null);
+        }
+        setProfileMessage({ type: 'success', text: '이름이 변경되었습니다!' });
+        setNewUsername('');
+      } catch (error) {
+        setProfileMessage({ type: 'error', text: '이름 변경에 실패했습니다' });
+      }
+    };
+
+    const handlePasswordChange = async () => {
+      if (!newPassword || !confirmPassword) {
+        setProfileMessage({ type: 'error', text: '비밀번호를 입력해주세요' });
+        return;
+      }
+      if (newPassword.length < 6) {
+        setProfileMessage({ type: 'error', text: '비밀번호는 6자 이상이어야 합니다' });
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setProfileMessage({ type: 'error', text: '비밀번호가 일치하지 않습니다' });
+        return;
+      }
+      try {
+        if (firebaseUser) {
+          const { updatePassword } = await import('firebase/auth');
+          await updatePassword(firebaseUser, newPassword);
+          setProfileMessage({ type: 'success', text: '비밀번호가 변경되었습니다!' });
+          setNewPassword('');
+          setConfirmPassword('');
+        }
+      } catch (error: any) {
+        if (error.code === 'auth/requires-recent-login') {
+          setProfileMessage({ type: 'error', text: '보안을 위해 다시 로그인 후 시도해주세요' });
+        } else {
+          setProfileMessage({ type: 'error', text: '비밀번호 변경에 실패했습니다' });
+        }
+      }
+    };
+
+    const handleLogout = async () => {
+      if (confirm('정말 로그아웃 하시겠습니까?')) {
+        await logoutUser();
+        setView(GameView.LOGIN);
+      }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        setProfileMessage({ type: 'error', text: '이미지 파일만 업로드 가능합니다' });
+        return;
+      }
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const size = 128; // 128x128로 리사이즈
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d')!;
+
+              // 중앙 크롭
+              const minDim = Math.min(img.width, img.height);
+              const sx = (img.width - minDim) / 2;
+              const sy = (img.height - minDim) / 2;
+              ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+
+              // 자동 압축: 용량이 50KB 이하가 될 때까지 품질 낮춤
+              let quality = 0.9;
+              let result = canvas.toDataURL('image/jpeg', quality);
+              const maxSize = 50 * 1024; // 50KB 목표
+
+              while (result.length > maxSize && quality > 0.1) {
+                quality -= 0.1;
+                result = canvas.toDataURL('image/jpeg', quality);
+              }
+
+              resolve(result);
+            };
+            img.onerror = reject;
+            img.src = reader.result as string;
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        if (firebaseUser) {
+          await updateUserProfile(firebaseUser.uid, { profileImage: base64 });
+          setUserProfile(prev => prev ? { ...prev, profileImage: base64 } : null);
+          setProfileMessage({ type: 'success', text: '프로필 사진이 변경되었습니다!' });
+        }
+      } catch (error) {
+        setProfileMessage({ type: 'error', text: '이미지 업로드에 실패했습니다' });
+      }
+    };
+
+    const handleRemoveImage = async () => {
+      if (!firebaseUser) return;
+      try {
+        await updateUserProfile(firebaseUser.uid, { profileImage: '' });
+        setUserProfile(prev => prev ? { ...prev, profileImage: '' } : null);
+        setProfileMessage({ type: 'success', text: '프로필 사진이 삭제되었습니다' });
+      } catch (error) {
+        setProfileMessage({ type: 'error', text: '삭제에 실패했습니다' });
+      }
+    };
+
+    return (
+      <div className="space-y-3 animate-fade-in">
+        {/* 헤더 */}
+        <div className="text-center py-2">
+          <h2 className="text-lg font-bold text-white">설정</h2>
+          <p className="text-xs text-slate-500">{firebaseUser?.email}</p>
+        </div>
+
+        {profileMessage && (
+          <div className={`p-2.5 rounded-xl text-xs ${profileMessage.type === 'success' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+            {profileMessage.text}
+          </div>
+        )}
+
+        {/* 프로필 사진 - 컴팩트 */}
+        <div className="glass-panel p-3 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-full bg-slate-700 border-2 border-slate-600 overflow-hidden flex items-center justify-center flex-shrink-0">
+              {userProfile?.profileImage ? (
+                <img src={userProfile.profileImage} alt="프로필" className="w-full h-full object-cover" />
+              ) : (
+                <UserIcon size={28} className="text-slate-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <Camera size={14} className="text-slate-400" />
+                <span className="text-xs font-bold text-white">프로필 사진</span>
+              </div>
+              <div className="flex gap-2">
+                <label className="flex-1">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                  <span className="block bg-blue-600 active:bg-blue-700 text-white py-1.5 px-3 rounded-lg text-xs font-bold text-center cursor-pointer active:scale-95 transition-all">
+                    선택
+                  </span>
+                </label>
+                {userProfile?.profileImage && (
+                  <button
+                    onClick={handleRemoveImage}
+                    className="flex-1 bg-slate-700 active:bg-slate-600 text-slate-300 py-1.5 px-3 rounded-lg text-xs active:scale-95 transition-all"
+                  >
+                    삭제
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 이름 변경 - 컴팩트 */}
+        <div className="glass-panel p-3 rounded-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserIcon size={14} className="text-slate-400" />
+              <span className="text-xs font-bold text-white">이름 변경</span>
+            </div>
+            <span className="text-yellow-400 text-xs font-bold">{stats.username}</span>
+          </div>
+          {!canChangeName && (
+            <div className="bg-slate-800/50 rounded-lg px-2.5 py-1.5 text-xs text-slate-400 flex items-center gap-1.5">
+              <Lock size={12} />
+              <span>{daysRemaining}일 후 변경 가능</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newUsername}
+              onChange={(e) => setNewUsername(e.target.value)}
+              placeholder="새 이름 (2~10자)"
+              maxLength={10}
+              disabled={!canChangeName}
+              className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg py-2 px-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50 disabled:opacity-50"
+            />
+            <button
+              onClick={handleUsernameChange}
+              disabled={!canChangeName}
+              className="bg-blue-600 active:bg-blue-700 disabled:bg-slate-700 disabled:text-slate-500 text-white py-2 px-4 rounded-lg font-bold text-xs active:scale-95 transition-all"
+            >
+              변경
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500">이름 변경은 30일에 1회 가능합니다</p>
+        </div>
+
+        {/* 비밀번호 변경 - 컴팩트 */}
+        <div className="glass-panel p-3 rounded-xl space-y-2">
+          <div className="flex items-center gap-2 mb-1">
+            <Lock size={14} className="text-slate-400" />
+            <span className="text-xs font-bold text-white">비밀번호 변경</span>
+          </div>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="새 비밀번호 (6자 이상)"
+            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2 px-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50"
+          />
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="비밀번호 확인"
+            className="w-full bg-slate-800/80 border border-slate-700 rounded-lg py-2 px-3 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500/50"
+          />
+          <button
+            onClick={handlePasswordChange}
+            className="w-full bg-violet-600 active:bg-violet-700 text-white py-2 rounded-lg font-bold text-xs active:scale-95 transition-all"
+          >
+            비밀번호 변경
+          </button>
+        </div>
+
+        {/* 로그아웃 */}
+        <button
+          onClick={handleLogout}
+          className="w-full bg-slate-800/50 active:bg-slate-700 text-slate-400 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-all border border-slate-700/50"
+        >
+          <LogOut size={14} />
+          로그아웃
+        </button>
+      </div>
+    );
+  };
+
   // Chat Message Component
   const ChatMessageItem: React.FC<{ message: GlobalChatMessage; isOwnMessage: boolean }> = ({ message, isOwnMessage }) => {
     const isSystem = message.type === 'system';
@@ -2183,6 +2478,11 @@ export default function App() {
               {renderBattle()}
             </div>
           )}
+          {view === GameView.PROFILE && (
+            <div className="px-4 py-4">
+              {renderProfile()}
+            </div>
+          )}
       </div>
 
       {/* Scroll to Bottom Button */}
@@ -2256,6 +2556,7 @@ export default function App() {
             { id: GameView.ENHANCE, icon: Hammer, label: '강화' },
             { id: GameView.ELEMENT, icon: Sparkles, label: '속성' },
             { id: GameView.BATTLE, icon: Sword, label: '전투' },
+            { id: GameView.PROFILE, icon: Lock, label: '설정' },
           ].map((item) => {
             const isActive = view === item.id;
             return (
