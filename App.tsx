@@ -416,29 +416,29 @@ export default function App() {
   // 스크롤을 최하단으로 이동하는 함수 (iOS 호환)
   const scrollChatToBottom = React.useCallback((force: boolean = false) => {
     const doScroll = () => {
+      // 방법 1: chat-end-marker로 스크롤 (iOS에서 가장 잘 작동)
+      const chatEnd = document.getElementById('chat-end-marker');
+      if (chatEnd) {
+        chatEnd.scrollIntoView({ behavior: 'instant', block: 'end' });
+      }
+
+      // 방법 2: 컨테이너 직접 스크롤
       const container = document.getElementById('chat-scroll-container');
       if (container) {
-        // iOS Safari 호환 스크롤
-        const scrollHeight = container.scrollHeight;
-        container.scrollTo({
-          top: scrollHeight,
-          behavior: 'auto'
-        });
-        // 백업: 직접 scrollTop 설정
-        container.scrollTop = scrollHeight;
+        container.scrollTop = container.scrollHeight + 1000;
       }
     };
 
     if (force) {
       // 강제 스크롤: 여러 번 시도
-      doScroll();
+      requestAnimationFrame(doScroll);
       setTimeout(doScroll, 50);
       setTimeout(doScroll, 150);
       setTimeout(doScroll, 300);
-      setTimeout(doScroll, 500);
+      setTimeout(doScroll, 600);
       setTimeout(doScroll, 1000);
     } else {
-      doScroll();
+      requestAnimationFrame(doScroll);
       setTimeout(doScroll, 100);
     }
   }, []);
@@ -1935,14 +1935,14 @@ export default function App() {
 
       </div>
 
-      {/* Scroll to Bottom Button - 채팅창 상단 우측 (fixed) */}
+      {/* Scroll to Bottom Button */}
       {view === GameView.HOME && showScrollButton && globalMessages.length > 0 && (
         <button
           onClick={() => scrollChatToBottom(true)}
-          className="fixed top-32 right-4 md:right-auto md:left-1/2 md:translate-x-[180px] w-10 h-10 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95 z-[9999]"
+          className="fixed top-40 right-3 md:top-36 md:right-auto md:left-1/2 md:translate-x-[200px] w-11 h-11 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 z-[9999] border-2 border-white/30"
           title="맨 아래로"
         >
-          <ChevronDown size={22} />
+          <ChevronDown size={24} />
         </button>
       )}
 
