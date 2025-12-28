@@ -15,13 +15,15 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
   limit,
   addDoc,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { Weapon, PlayerStats, ChatMessage } from '../types';
 
@@ -251,4 +253,68 @@ export const getRandomOpponent = async (currentUid: string): Promise<{ profile: 
 export const isFirebaseConfigured = () => {
   return firebaseConfig.apiKey !== "YOUR_API_KEY" &&
          firebaseConfig.projectId !== "YOUR_PROJECT_ID";
+};
+
+// ============ 관리자 데이터 초기화 함수 ============
+
+// 채팅 메시지 전체 삭제
+export const clearAllChatMessages = async (): Promise<number> => {
+  const snapshot = await getDocs(collection(db, 'globalChat'));
+  const batch = writeBatch(db);
+  let count = 0;
+
+  snapshot.docs.forEach((document) => {
+    batch.delete(doc(db, 'globalChat', document.id));
+    count++;
+  });
+
+  await batch.commit();
+  return count;
+};
+
+// 7일 이상 된 오래된 채팅 메시지 삭제
+export const clearOldChatMessages = async (daysOld: number = 7): Promise<number> => {
+  const snapshot = await getDocs(collection(db, 'globalChat'));
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+
+  let count = 0;
+
+  for (const document of snapshot.docs) {
+    const data = document.data();
+    const timestamp = data.timestamp?.toDate?.();
+
+    if (timestamp && timestamp < cutoffDate) {
+      await deleteDoc(doc(db, 'globalChat', document.id));
+      count++;
+    }
+  }
+
+  return count;
+};
+
+// 관리자 제외 모든 유저 및 게임 데이터 삭제
+export const clearAllDataExceptAdmin = async (adminUid: string): Promise<{ users: number; gameData: number }> => {
+  let usersDeleted = 0;
+  let gameDataDeleted = 0;
+
+  // users 컬렉션 삭제 (관리자 제외)
+  const usersSnapshot = await getDocs(collection(db, 'users'));
+  for (const document of usersSnapshot.docs) {
+    if (document.id !== adminUid) {
+      await deleteDoc(doc(db, 'users', document.id));
+      usersDeleted++;
+    }
+  }
+
+  // gameData 컬렉션 삭제 (관리자 제외)
+  const gameDataSnapshot = await getDocs(collection(db, 'gameData'));
+  for (const document of gameDataSnapshot.docs) {
+    if (document.id !== adminUid) {
+      await deleteDoc(doc(db, 'gameData', document.id));
+      gameDataDeleted++;
+    }
+  }
+
+  return { users: usersDeleted, gameData: gameDataDeleted };
 };

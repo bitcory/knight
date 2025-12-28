@@ -31,7 +31,8 @@ import {
   Gift,
   Camera,
   HelpCircle,
-  X
+  X,
+  EyeOff
 } from 'lucide-react';
 import {
   Weapon,
@@ -61,6 +62,9 @@ import {
   getAllUsers,
   getAllGameData,
   giftGoldToUser,
+  clearAllChatMessages,
+  clearOldChatMessages,
+  clearAllDataExceptAdmin,
   GlobalChatMessage,
   UserProfile
 } from './services/firebase';
@@ -87,8 +91,8 @@ const INITIAL_WEAPON: Weapon = {
 
 const SCROLL_PRICE = 100000; // 강화 주문서 가격 (성공 확률 +20%)
 
-// 관리자 이메일
-const ADMIN_EMAILS = ['ggamsire@gmail.com'];
+// 관리자 아이디 (내부적으로 @knight.game 이메일로 저장됨)
+const ADMIN_EMAILS = ['knight@knight.game'];
 
 // 무기 상성 시스템
 // 검 > 창 (검으로 창을 쳐내고 접근)
@@ -690,6 +694,7 @@ export default function App() {
   // 관리자 골드 선물 State
   const [giftGoldAmount, setGiftGoldAmount] = useState<string>('');
   const [showGiftModal, setShowGiftModal] = useState<{ profile: UserProfile, gameData: any } | null>(null);
+  const [showSecretGiftModal, setShowSecretGiftModal] = useState<{ profile: UserProfile, gameData: any } | null>(null);
   const isAdmin = ADMIN_EMAILS.includes(firebaseUser?.email || '');
 
   // 출석체크 State
@@ -1000,6 +1005,7 @@ export default function App() {
 
       const opponents = users
         .filter(u => u.uid !== firebaseUser.uid)
+        .filter(u => !ADMIN_EMAILS.includes(u.email)) // 관리자 계정 숨김
         .map(user => {
           const gameData = gameDataList.find(g => g.uid === user.uid);
           return gameData ? { profile: user, gameData: gameData.data } : null;
@@ -1059,6 +1065,26 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [firebaseUser]);
+
+  // 관리자: 주간 채팅 자동 정리 (7일 이상 된 메시지 삭제)
+  useEffect(() => {
+    if (!firebaseUser || !isAdmin) return;
+
+    const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+    const LAST_CLEANUP_KEY = 'lastChatCleanup';
+    const lastCleanup = parseInt(localStorage.getItem(LAST_CLEANUP_KEY) || '0', 10);
+    const now = Date.now();
+
+    if (now - lastCleanup >= WEEK_MS) {
+      // 일주일이 지났으면 정리 실행
+      clearOldChatMessages(7).then((count) => {
+        if (count > 0) {
+          console.log(`[자동 정리] ${count}개의 오래된 채팅 메시지 삭제됨`);
+        }
+        localStorage.setItem(LAST_CLEANUP_KEY, now.toString());
+      }).catch(console.error);
+    }
+  }, [firebaseUser, isAdmin]);
 
   const addLog = (type: GameLog['type'], message: string, subtext?: string, success?: boolean) => {
     setLogs(prev => [{
@@ -1651,6 +1677,63 @@ export default function App() {
         buyScroll();
         return;
       }
+
+      // 관리자 비밀 명령어: /선물 유저이름 금액 또는 /gift username amount
+      if (isAdmin) {
+        const giftMatch = input.match(/^\/(선물|gift)\s+(\S+)\s+(\d+)$/i);
+        if (giftMatch) {
+          const targetUsername = giftMatch[2];
+          const amount = parseInt(giftMatch[3], 10);
+
+          if (amount <= 0) {
+            // 귓속말로 에러 표시 (자기 자신에게)
+            await sendGlobalMessage({
+              uid: firebaseUser!.uid,
+              username: '시스템',
+              type: 'whisper',
+              content: '금액은 1 이상이어야 합니다.',
+              whisperTo: stats.username
+            });
+            return;
+          }
+
+          // 유저 찾기
+          const users = await getAllUsers();
+          const targetUser = users.find(u => u.username === targetUsername);
+
+          if (!targetUser) {
+            await sendGlobalMessage({
+              uid: firebaseUser!.uid,
+              username: '시스템',
+              type: 'whisper',
+              content: `'${targetUsername}' 유저를 찾을 수 없습니다.`,
+              whisperTo: stats.username
+            });
+            return;
+          }
+
+          // 골드 선물
+          const success = await giftGoldToUser(targetUser.uid, amount);
+          if (success) {
+            await sendGlobalMessage({
+              uid: firebaseUser!.uid,
+              username: '시스템',
+              type: 'whisper',
+              content: `${targetUsername}에게 ${amount.toLocaleString()}G를 선물했습니다.`,
+              whisperTo: stats.username
+            });
+          } else {
+            await sendGlobalMessage({
+              uid: firebaseUser!.uid,
+              username: '시스템',
+              type: 'whisper',
+              content: '골드 선물에 실패했습니다.',
+              whisperTo: stats.username
+            });
+          }
+          return;
+        }
+      }
     }
 
     // 일반 채팅 메시지
@@ -2108,9 +2191,10 @@ export default function App() {
   const renderBattle = () => {
     const myPower = weapon.baseDamage + (weapon.level * 25) + (weapon.level * weapon.level * 2);
 
-    // 랭킹 데이터 생성 (나 + 상대들)
+    // 랭킹 데이터 생성 (나 + 상대들, 관리자 제외)
     const allPlayers = [
-      { username: stats.username, wins: stats.wins, losses: stats.losses, level: weapon.level, isMe: true, profileImage: userProfile?.profileImage },
+      // 관리자가 아닌 경우만 본인 추가
+      ...(isAdmin ? [] : [{ username: stats.username, wins: stats.wins, losses: stats.losses, level: weapon.level, isMe: true, profileImage: userProfile?.profileImage }]),
       ...availableOpponents.map(opp => ({
         username: opp.profile.username,
         wins: opp.gameData.stats?.wins || 0,
@@ -2273,17 +2357,30 @@ export default function App() {
                       <div className="text-right flex items-center gap-2">
                         {/* 관리자용 선물 버튼 */}
                         {isAdmin && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowGiftModal(opp);
-                              setGiftGoldAmount('');
-                            }}
-                            className="w-8 h-8 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg flex items-center justify-center active:scale-95 transition-all border border-yellow-500/30"
-                            title="골드 선물"
-                          >
-                            <Gift size={16} />
-                          </button>
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowGiftModal(opp);
+                                setGiftGoldAmount('');
+                              }}
+                              className="w-8 h-8 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 rounded-lg flex items-center justify-center active:scale-95 transition-all border border-yellow-500/30"
+                              title="골드 선물 (공개)"
+                            >
+                              <Gift size={16} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowSecretGiftModal(opp);
+                                setGiftGoldAmount('');
+                              }}
+                              className="w-8 h-8 bg-purple-500/20 hover:bg-purple-500/30 text-purple-400 rounded-lg flex items-center justify-center active:scale-95 transition-all border border-purple-500/30"
+                              title="골드 선물 (비밀)"
+                            >
+                              <EyeOff size={16} />
+                            </button>
+                          </>
                         )}
                         <div>
                           <div className="flex items-center gap-1 justify-end flex-wrap">
@@ -2767,6 +2864,53 @@ export default function App() {
           </button>
         </div>
 
+        {/* 관리자 패널 */}
+        {isAdmin && (
+          <div className="glass-panel p-3 rounded-xl space-y-2 border-2 border-red-500/30">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={14} className="text-red-400" />
+              <span className="text-xs font-bold text-red-400">관리자 도구</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={async () => {
+                  if (confirm('모든 채팅 메시지를 삭제하시겠습니까?')) {
+                    try {
+                      const count = await clearAllChatMessages();
+                      setProfileMessage({ type: 'success', text: `채팅 ${count}개 삭제 완료` });
+                    } catch (error) {
+                      setProfileMessage({ type: 'error', text: '채팅 삭제 실패' });
+                    }
+                  }
+                }}
+                className="bg-orange-600 active:bg-orange-700 text-white py-2 px-3 rounded-lg text-xs font-bold active:scale-95 transition-all"
+              >
+                채팅 초기화
+              </button>
+              <button
+                onClick={async () => {
+                  if (confirm('관리자를 제외한 모든 유저/게임 데이터를 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다!')) {
+                    if (confirm('정말 삭제하시겠습니까? 마지막 확인입니다.')) {
+                      try {
+                        const result = await clearAllDataExceptAdmin(firebaseUser?.uid || '');
+                        setProfileMessage({ type: 'success', text: `유저 ${result.users}명, 게임 ${result.gameData}개 삭제 완료` });
+                        // 상대 목록 새로고침
+                        loadOpponents();
+                      } catch (error) {
+                        setProfileMessage({ type: 'error', text: '데이터 삭제 실패' });
+                      }
+                    }
+                  }
+                }}
+                className="bg-red-600 active:bg-red-700 text-white py-2 px-3 rounded-lg text-xs font-bold active:scale-95 transition-all"
+              >
+                유저 초기화
+              </button>
+            </div>
+            <p className="text-[10px] text-red-400/70">유저 초기화는 관리자 계정을 제외한 모든 데이터를 삭제합니다</p>
+          </div>
+        )}
+
         {/* 로그아웃 */}
         <button
           onClick={handleLogout}
@@ -3175,7 +3319,7 @@ export default function App() {
         </div>
       )}
 
-      {/* 관리자 골드 선물 모달 */}
+      {/* 관리자 골드 선물 모달 (공개) */}
       {showGiftModal && isAdmin && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowGiftModal(null)}>
           <div className="w-full max-w-sm animate-fade-in glass-panel p-5 rounded-2xl" onClick={(e) => e.stopPropagation()}>
@@ -3247,6 +3391,92 @@ export default function App() {
                   className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-bold text-sm active:scale-95 transition-all shadow-lg"
                 >
                   선물하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 관리자 골드 선물 모달 (비밀) */}
+      {showSecretGiftModal && isAdmin && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSecretGiftModal(null)}>
+          <div className="w-full max-w-sm animate-fade-in glass-panel p-5 rounded-2xl border-2 border-purple-500/30" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                <EyeOff size={24} className="text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-purple-300">비밀 골드 선물</h3>
+                <p className="text-sm text-slate-400">{showSecretGiftModal.profile.username}에게 선물</p>
+              </div>
+            </div>
+
+            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-2 mb-3">
+              <p className="text-xs text-purple-300 flex items-center gap-1">
+                <EyeOff size={12} />
+                이 선물은 채팅에 공개되지 않습니다
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">선물할 골드</label>
+                <input
+                  type="number"
+                  value={giftGoldAmount}
+                  onChange={(e) => setGiftGoldAmount(e.target.value)}
+                  placeholder="골드 수량 입력"
+                  className="w-full bg-slate-800/80 border border-purple-500/30 rounded-xl py-3 px-4 text-white placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+
+              {/* 빠른 선택 버튼 */}
+              <div className="grid grid-cols-4 gap-2">
+                {[100000, 500000, 1000000, 5000000].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => setGiftGoldAmount(amount.toString())}
+                    className="py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 rounded-lg text-xs font-bold active:scale-95 transition-all border border-purple-500/20"
+                  >
+                    {amount >= 1000000 ? `${amount / 1000000}M` : `${amount / 1000}K`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowSecretGiftModal(null)}
+                  className="flex-1 py-3 bg-slate-700 text-slate-300 rounded-xl font-bold text-sm active:scale-95 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={async () => {
+                    const amount = parseInt(giftGoldAmount);
+                    if (!amount || amount <= 0) {
+                      alert('올바른 골드 수량을 입력해주세요');
+                      return;
+                    }
+                    const success = await giftGoldToUser(showSecretGiftModal.profile.uid, amount);
+                    if (success) {
+                      // 관리자에게만 귓속말로 알림 (비공개)
+                      await sendGlobalMessage({
+                        uid: firebaseUser!.uid,
+                        username: '시스템',
+                        type: 'whisper',
+                        content: `🎁 ${showSecretGiftModal.profile.username}에게 ${amount.toLocaleString()}G를 비밀리에 선물했습니다.`,
+                        whisperTo: stats.username
+                      });
+                      setShowSecretGiftModal(null);
+                      loadOpponents(); // 상대 목록 새로고침
+                    } else {
+                      alert('선물에 실패했습니다');
+                    }
+                  }}
+                  className="flex-1 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl font-bold text-sm active:scale-95 transition-all shadow-lg"
+                >
+                  비밀 선물
                 </button>
               </div>
             </div>
