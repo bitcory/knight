@@ -466,42 +466,27 @@ export default function App() {
     prevMessageCount.current = globalMessages.length;
   }, [globalMessages.length, scrollChatToBottom]);
 
-  // 스크롤 위치 추적 (맨 아래인지 확인)
-  const [isAtBottom, setIsAtBottom] = useState(false);
-
-  const checkScrollPosition = React.useCallback(() => {
-    const container = document.getElementById('chat-scroll-container');
-    if (!container) return;
-
-    // 컨테이너에 스크롤이 있는지 확인
-    const hasScroll = container.scrollHeight > container.clientHeight + 50;
-    if (!hasScroll) {
-      setIsAtBottom(true); // 스크롤이 없으면 맨 아래로 간주
-      return;
-    }
-
-    const threshold = 150;
-    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    const isBottom = distanceFromBottom < threshold;
-    setIsAtBottom(isBottom);
-  }, []);
+  // 스크롤 버튼 표시 여부 (사용자가 직접 스크롤할 때만 업데이트)
+  const [showScrollButton, setShowScrollButton] = useState(true);
 
   useEffect(() => {
     const container = document.getElementById('chat-scroll-container');
     if (!container) return;
 
-    // 스크롤 이벤트 리스너
-    container.addEventListener('scroll', checkScrollPosition);
-    return () => container.removeEventListener('scroll', checkScrollPosition);
-  }, [view, checkScrollPosition]);
+    const handleScroll = () => {
+      const threshold = 200;
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      // 맨 아래 근처면 버튼 숨김
+      if (distanceFromBottom < threshold) {
+        setShowScrollButton(false);
+      } else {
+        setShowScrollButton(true);
+      }
+    };
 
-  // 메시지 로드 후 스크롤 위치 체크 (지연)
-  useEffect(() => {
-    if (globalMessages.length > 0) {
-      setTimeout(checkScrollPosition, 500);
-      setTimeout(checkScrollPosition, 1000);
-    }
-  }, [globalMessages.length, checkScrollPosition]);
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [view]);
 
   // 일일 전투 횟수 체크 및 리셋
   useEffect(() => {
@@ -1946,7 +1931,7 @@ export default function App() {
       </div>
 
       {/* Scroll to Bottom Button - 채팅창 상단 우측 (fixed) */}
-      {view === GameView.HOME && !isAtBottom && globalMessages.length > 0 && (
+      {view === GameView.HOME && showScrollButton && globalMessages.length > 0 && (
         <button
           onClick={() => scrollChatToBottom(true)}
           className="fixed top-32 right-4 md:right-auto md:left-1/2 md:translate-x-[180px] w-10 h-10 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95 z-[9999]"
