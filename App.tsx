@@ -414,32 +414,57 @@ export default function App() {
   const chatContainerRef = React.useRef<HTMLDivElement>(null);
 
   // 스크롤을 최하단으로 이동하는 함수
-  const scrollChatToBottom = React.useCallback(() => {
-    const chatEnd = document.getElementById('chat-end-marker');
-    if (chatEnd) {
-      chatEnd.scrollIntoView({ behavior: 'auto', block: 'end' });
+  const scrollChatToBottom = React.useCallback((force: boolean = false) => {
+    const doScroll = () => {
+      const chatEnd = document.getElementById('chat-end-marker');
+      const container = document.getElementById('chat-scroll-container');
+      if (chatEnd) {
+        chatEnd.scrollIntoView({ behavior: 'auto', block: 'end' });
+      }
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    };
+
+    if (force) {
+      // 강제 스크롤: 여러 번 시도
+      doScroll();
+      setTimeout(doScroll, 100);
+      setTimeout(doScroll, 300);
+      setTimeout(doScroll, 500);
+      setTimeout(doScroll, 1000);
+    } else {
+      setTimeout(doScroll, 100);
     }
   }, []);
 
-  // 초기 로드 시 스크롤 (한 번만)
+  // 초기 로드 또는 로그인 시 스크롤
   const initialScrollDone = React.useRef(false);
   useEffect(() => {
-    if (view === GameView.HOME && globalMessages.length > 0 && !initialScrollDone.current) {
-      initialScrollDone.current = true;
-      setTimeout(scrollChatToBottom, 500);
-    }
-  }, [view, globalMessages.length, scrollChatToBottom]);
-
-  // 새 메시지 추가 시 스크롤
-  const prevMessageCount = React.useRef(0);
-  useEffect(() => {
-    if (globalMessages.length > prevMessageCount.current && prevMessageCount.current > 0) {
-      if (view === GameView.HOME) {
-        setTimeout(scrollChatToBottom, 100);
+    if (view === GameView.HOME && globalMessages.length > 0 && firebaseUser) {
+      if (!initialScrollDone.current) {
+        initialScrollDone.current = true;
+        scrollChatToBottom(true); // 강제 스크롤
       }
     }
+  }, [view, globalMessages.length, firebaseUser, scrollChatToBottom]);
+
+  // 로그인 시 초기 스크롤 리셋
+  useEffect(() => {
+    if (firebaseUser) {
+      initialScrollDone.current = false;
+    }
+  }, [firebaseUser]);
+
+  // 새 메시지 추가 시 스크롤 (강화 결과 등)
+  const prevMessageCount = React.useRef(0);
+  useEffect(() => {
+    if (globalMessages.length > prevMessageCount.current) {
+      // 새 메시지가 추가되면 항상 스크롤
+      scrollChatToBottom(prevMessageCount.current === 0);
+    }
     prevMessageCount.current = globalMessages.length;
-  }, [globalMessages.length, view, scrollChatToBottom]);
+  }, [globalMessages.length, scrollChatToBottom]);
 
   // 스크롤 위치 추적 (맨 아래인지 확인)
   const [isAtBottom, setIsAtBottom] = useState(true);
