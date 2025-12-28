@@ -2702,7 +2702,7 @@ export default function App() {
               <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-pink-500/50" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-600 to-purple-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
-                {message.username[0]?.toUpperCase()}
+                {(message.username || '?')[0]?.toUpperCase()}
               </div>
             )}
             <div className={`${isFromMe ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md'} px-4 py-3 text-sm shadow-lg bg-gradient-to-br from-pink-900/80 to-purple-900/80 border border-pink-500/30`}>
@@ -2728,7 +2728,7 @@ export default function App() {
               <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-blue-500/50" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
-                {message.username[0]?.toUpperCase()}
+                {(message.username || '?')[0]?.toUpperCase()}
               </div>
             )}
             <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl rounded-br-md px-4 py-3 text-sm text-white shadow-lg">
@@ -2762,7 +2762,7 @@ export default function App() {
             <img src={profileImage} alt="" className="w-8 h-8 rounded-full object-cover shrink-0 border-2 border-purple-500/50" />
           ) : (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center shrink-0 text-white font-bold text-xs">
-              {message.username[0]?.toUpperCase()}
+              {(message.username || '?')[0]?.toUpperCase()}
             </div>
           )}
           <div className={`rounded-2xl rounded-bl-md px-4 py-3 text-sm shadow-lg ${
@@ -2851,7 +2851,7 @@ export default function App() {
                       key={msg.id}
                       message={msg}
                       isOwnMessage={msg.uid === firebaseUser?.uid}
-                      profileImage={userProfilesMap[msg.uid]?.profileImage}
+                      profileImage={msg.uid ? userProfilesMap[msg.uid]?.profileImage : undefined}
                     />
                   ))}
                   <div id="chat-end-marker" ref={chatEndRef} />
