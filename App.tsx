@@ -1696,7 +1696,7 @@ export default function App() {
                     {idx + 1}
                   </span>
                   <span className={`text-sm ${player.isMe ? 'text-yellow-400 font-bold' : 'text-slate-300'}`}>
-                    {player.username} {player.isMe && `(나 ${idx + 1}위)`}
+                    {player.username}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
@@ -1710,28 +1710,33 @@ export default function App() {
         </div>
 
         {/* My Power */}
-        <div className="glass-panel p-3 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-500 to-orange-600 flex items-center justify-center text-white font-bold">
-              {stats.username[0]?.toUpperCase()}
-            </div>
-            <div>
-              <div className="text-sm font-bold text-white">{stats.username}</div>
-              <div className="text-xs text-slate-400">
-                [{WEAPON_TYPE_NAMES[weapon.type]}] [+{weapon.level}] {weapon.name}
-                {weapon.element && weapon.element !== ElementType.NONE && (
-                  <span className={`ml-1 ${ELEMENT_COLORS[weapon.element]}`}>
-                    [{ELEMENT_NAMES[weapon.element]}+{weapon.elementLevel || 0}]
-                  </span>
-                )}
+        {(() => {
+          const myRank = allPlayers.findIndex(p => p.isMe) + 1;
+          return (
+            <div className="glass-panel p-3 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-2xl ${myRank === 1 ? 'bg-yellow-500/20 text-yellow-400' : myRank === 2 ? 'bg-slate-400/20 text-slate-300' : myRank === 3 ? 'bg-orange-500/20 text-orange-400' : 'bg-slate-700/50 text-slate-400'}`}>
+                  {myRank}
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white">{stats.username}</div>
+                  <div className="text-xs text-slate-400">
+                    [{WEAPON_TYPE_NAMES[weapon.type]}] [+{weapon.level}] {weapon.name}
+                    {weapon.element && weapon.element !== ElementType.NONE && (
+                      <span className={`ml-1 ${ELEMENT_COLORS[weapon.element]}`}>
+                        [{ELEMENT_NAMES[weapon.element]}+{weapon.elementLevel || 0}]
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-slate-500">전투력</div>
+                <div className="text-lg font-bold text-yellow-400">{myPower.toLocaleString()}</div>
               </div>
             </div>
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-slate-500">전투력</div>
-            <div className="text-lg font-bold text-yellow-400">{myPower.toLocaleString()}</div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Opponent List */}
         <div className="space-y-2">
