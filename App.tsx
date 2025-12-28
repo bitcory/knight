@@ -950,16 +950,16 @@ export default function App() {
 
     // 무기 상성 체크
     const typeAdvantage = getTypeAdvantage(weapon.type, opponentWeapon.type);
-    const typeBonus = typeAdvantage === 'advantage' ? 0.15 : typeAdvantage === 'disadvantage' ? -0.15 : 0;
+    const typeBonus = typeAdvantage === 'advantage' ? 0.10 : typeAdvantage === 'disadvantage' ? -0.10 : 0;
 
-    // 속성 상성 체크
+    // 속성 상성 체크 (비중 축소: 10% → 5%)
     const elementAdvantage = getElementAdvantage(weapon.element, opponentWeapon.element);
-    const elementBonus = elementAdvantage === 'advantage' ? 0.10 : elementAdvantage === 'disadvantage' ? -0.10 : 0;
+    const elementBonus = elementAdvantage === 'advantage' ? 0.05 : elementAdvantage === 'disadvantage' ? -0.05 : 0;
 
-    // 속성 레벨 보너스 (레벨당 1% 추가)
+    // 속성 레벨 보너스 (레벨당 0.5% 추가)
     const myElementLevel = weapon.elementLevel || 0;
     const oppElementLevel = opponentWeapon.elementLevel || 0;
-    const elementLevelBonus = (myElementLevel - oppElementLevel) * 0.01;
+    const elementLevelBonus = (myElementLevel - oppElementLevel) * 0.005;
 
     // 승률 계산 (전투력 차이 + 무기 상성 + 속성 상성 + 속성 레벨)
     const powerDiff = myPower - opponentPower;
