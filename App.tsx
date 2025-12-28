@@ -1947,14 +1947,14 @@ export default function App() {
 
       </div>
 
-      {/* Scroll to Bottom Button - 하단 고정 섹션 위에 위치 */}
+      {/* Scroll to Bottom Button - 채팅창 상단 우측 */}
       {view === GameView.HOME && !isAtBottom && globalMessages.length > 0 && (
         <button
           onClick={() => scrollChatToBottom(true)}
-          className="absolute bottom-[220px] right-4 w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95 z-50 border-2 border-blue-400"
+          className="absolute top-[140px] right-4 w-10 h-10 bg-blue-600/90 hover:bg-blue-500 text-white rounded-full shadow-xl flex items-center justify-center transition-all active:scale-95 z-50"
           title="맨 아래로"
         >
-          <ChevronDown size={28} />
+          <ChevronDown size={22} />
         </button>
       )}
 
