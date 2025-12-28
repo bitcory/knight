@@ -416,48 +416,30 @@ export default function App() {
   // 스크롤을 최하단으로 이동하는 함수 (iOS Safari 호환)
   const scrollChatToBottom = React.useCallback((force: boolean = false) => {
     const doScroll = () => {
-      requestAnimationFrame(() => {
-        try {
-          const container = document.getElementById('chat-scroll-container');
-          if (!container) return;
+      // ref 사용 (iOS에서 더 안정적)
+      const container = chatContainerRef.current;
+      const endMarker = chatEndRef.current;
 
-          // iOS Safari: scrollTo 사용
-          const scrollHeight = container.scrollHeight;
-          const clientHeight = container.clientHeight;
-          const maxScroll = scrollHeight - clientHeight;
+      if (container) {
+        // 방법 1: scrollTop 직접 설정
+        container.scrollTop = container.scrollHeight;
+      }
 
-          // 방법 1: scrollTo API (iOS Safari에서 더 잘 작동)
-          if (typeof container.scrollTo === 'function') {
-            container.scrollTo({
-              top: maxScroll + 1000,
-              behavior: 'auto'
-            });
-          }
-
-          // 방법 2: 직접 scrollTop 설정 (백업)
-          container.scrollTop = maxScroll + 1000;
-
-          // 방법 3: scrollIntoView (추가 백업)
-          const chatEnd = document.getElementById('chat-end-marker');
-          if (chatEnd) {
-            chatEnd.scrollIntoView({ block: 'end', behavior: 'auto' });
-          }
-        } catch (e) {
-          // 에러 무시
-        }
-      });
+      if (endMarker) {
+        // 방법 2: scrollIntoView (iOS Safari 호환)
+        endMarker.scrollIntoView(false);
+      }
     };
 
-    // 즉시 실행 + 여러 번 재시도 (iOS에서 렌더링 타이밍 이슈 해결)
+    // 즉시 실행
     doScroll();
-    setTimeout(doScroll, 50);
-    setTimeout(doScroll, 150);
+
+    // 여러 번 재시도 (iOS 렌더링 타이밍)
+    setTimeout(doScroll, 100);
     setTimeout(doScroll, 300);
     if (force) {
-      setTimeout(doScroll, 500);
-      setTimeout(doScroll, 800);
-      setTimeout(doScroll, 1200);
-      setTimeout(doScroll, 2000);
+      setTimeout(doScroll, 600);
+      setTimeout(doScroll, 1000);
     }
   }, []);
 
@@ -1955,8 +1937,18 @@ export default function App() {
       {/* Scroll to Bottom Button */}
       {view === GameView.HOME && showScrollButton && globalMessages.length > 0 && (
         <button
-          onClick={() => scrollChatToBottom(true)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollChatToBottom(true);
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollChatToBottom(true);
+          }}
           className="fixed top-40 right-3 md:top-36 md:right-auto md:left-1/2 md:translate-x-[200px] w-11 h-11 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center active:scale-90 z-[9999] border-2 border-white/30"
+          style={{ touchAction: 'manipulation' }}
           title="맨 아래로"
         >
           <ChevronDown size={24} />
