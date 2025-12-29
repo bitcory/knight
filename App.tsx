@@ -1162,7 +1162,8 @@ export default function App() {
   // 아이디를 이메일 형식으로 변환
   const idToEmail = (id: string) => `${id.toLowerCase()}@knight.game`;
 
-  const REFERRAL_BONUS = 500000; // 추천인 보너스 골드 (레벨 100 시스템)
+  const REFERRAL_BONUS = 1000000; // 추천인 보너스 골드 (레벨 100 시스템)
+  const SPECIAL_REFERRAL_BONUS = 2000000; // 특별 추천인(knight) 보너스
 
   const handleRegister = async () => {
     if (!firebaseConfigured) {
@@ -1195,22 +1196,29 @@ export default function App() {
     // 추천인 검증 (입력된 경우에만)
     let referrerUid: string | null = null;
     let referrerUsername: string | null = null;
+    let isSpecialReferral = false; // 특별 추천 코드 (knight)
     if (inputReferral.trim()) {
       const referralId = inputReferral.trim().toLowerCase();
-      // 자기 자신을 추천인으로 입력할 수 없음
-      if (referralId === inputId.trim().toLowerCase()) {
-        setAuthError('자신을 추천인으로 입력할 수 없습니다.');
-        return;
+
+      // 특별 추천 코드 체크 (knight)
+      if (referralId === 'knight') {
+        isSpecialReferral = true;
+      } else {
+        // 자기 자신을 추천인으로 입력할 수 없음
+        if (referralId === inputId.trim().toLowerCase()) {
+          setAuthError('자신을 추천인으로 입력할 수 없습니다.');
+          return;
+        }
+        // 추천인 존재 확인
+        const allUsers = await getAllUsers();
+        const referrer = allUsers.find(u => u.email === idToEmail(referralId));
+        if (!referrer) {
+          setAuthError('존재하지 않는 추천인 아이디입니다.');
+          return;
+        }
+        referrerUid = referrer.uid;
+        referrerUsername = referrer.username;
       }
-      // 추천인 존재 확인
-      const allUsers = await getAllUsers();
-      const referrer = allUsers.find(u => u.email === idToEmail(referralId));
-      if (!referrer) {
-        setAuthError('존재하지 않는 추천인 아이디입니다.');
-        return;
-      }
-      referrerUid = referrer.uid;
-      referrerUsername = referrer.username;
     }
 
     setAuthLoading(true);
@@ -1218,8 +1226,23 @@ export default function App() {
       const fakeEmail = idToEmail(inputId.trim());
       const newUser = await registerUser(fakeEmail, inputPassword, inputUsername.trim());
 
-      // 추천인이 있으면 보너스 골드 지급
-      if (referrerUid && referrerUsername) {
+      // 특별 추천 코드 (knight) 사용 시
+      if (isSpecialReferral) {
+        // 신규 가입자에게 특별 보너스 지급
+        setTimeout(async () => {
+          await giftGoldToUser(newUser.uid, SPECIAL_REFERRAL_BONUS);
+        }, 2000);
+
+        // 특별 추천 성공 메시지
+        setTimeout(() => {
+          sendGlobalChatMessage('system',
+            `🎉 ${inputUsername.trim()}님이 특별 추천 코드로 가입했습니다!\n` +
+            `💰 특별 보너스: ${SPECIAL_REFERRAL_BONUS.toLocaleString()}G 지급!`
+          );
+        }, 1000);
+      }
+      // 일반 추천인이 있으면 보너스 골드 지급
+      else if (referrerUid && referrerUsername) {
         // 추천인에게 골드 지급
         await giftGoldToUser(referrerUid, REFERRAL_BONUS);
 
@@ -2034,7 +2057,7 @@ export default function App() {
               </div>
               <p className="text-xs text-yellow-400/80 mb-5 ml-1 flex items-center gap-1">
                 <Sparkles size={12} />
-                추천인과 회원가입자 모두 200,000G 지급!
+                추천인과 회원가입자 모두 1,000,000G 지급!
               </p>
             </>
           )}
