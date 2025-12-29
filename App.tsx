@@ -76,7 +76,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 // --- Constants ---
 const INITIAL_STATS: PlayerStats = {
   username: '',
-  gold: 500000, // 초기 골드 상향 (레벨 100 시스템)
+  gold: 1000000, // 초기 골드 100만 (레벨 100 시스템)
   scrolls: 5,
   wins: 0,
   losses: 0
