@@ -54,7 +54,7 @@ export enum GameView {
   PROFILE = 'PROFILE'
 }
 
-export const MAX_LEVEL = 20;
+export const MAX_LEVEL = 100;
 
 export interface EnhancementConfig {
   cost: number;

@@ -4,20 +4,31 @@ import { Sword, Axe, Hammer, Zap, Flame, Droplets, Sun, Moon, Ghost } from 'luci
 
 // --- Procedural Visual System ---
 
+// 10단계 티어 시스템 (레벨 100)
 const getVisualTier = (level: number) => {
-  if (level >= 20) return 'mythic';
-  if (level >= 15) return 'legendary';
-  if (level >= 10) return 'epic';
-  if (level >= 5) return 'rare';
+  if (level >= 90) return 'godly';
+  if (level >= 80) return 'transcendent';
+  if (level >= 70) return 'celestial';
+  if (level >= 60) return 'divine';
+  if (level >= 50) return 'mythic';
+  if (level >= 40) return 'legendary';
+  if (level >= 30) return 'epic';
+  if (level >= 20) return 'rare';
+  if (level >= 10) return 'uncommon';
   return 'common';
 };
 
 const TIER_NAMES_KR: Record<string, string> = {
   common: '일반',
+  uncommon: '고급',
   rare: '희귀',
   epic: '영웅',
   legendary: '전설',
-  mythic: '신화'
+  mythic: '신화',
+  divine: '신성',
+  celestial: '천상',
+  transcendent: '초월',
+  godly: '신급'
 };
 
 const WEAPON_TYPE_NAMES_KR: Record<string, string> = {
@@ -30,10 +41,100 @@ const WEAPON_TYPE_NAMES_KR: Record<string, string> = {
 // 무기 이미지 경로 생성
 const getWeaponImagePath = (type: WeaponType, tier: string): string => {
   const typeKey = type.toLowerCase();
-  return `/weapons/${typeKey}_${tier}.png`;
+
+  // 검(sword)은 10단계 이미지 사용
+  if (type === WeaponType.SWORD) {
+    const swordImageMap: Record<string, string> = {
+      common: 'sword_common',       // 0-9
+      uncommon: 'sword_rare',       // 10-19
+      rare: 'sword_epic',           // 20-29
+      epic: 'sword_legendary',      // 30-39
+      legendary: 'sword_mythic',    // 40-49
+      mythic: 's6',                 // 50-59
+      divine: 's7',                 // 60-69
+      celestial: 's8',              // 70-79
+      transcendent: 's9',           // 80-89
+      godly: 's10'                  // 90-100
+    };
+    return `/weapons/${swordImageMap[tier] || 'sword_common'}.png`;
+  }
+
+  // 창(spear)은 10단계 이미지 사용
+  if (type === WeaponType.SPEAR) {
+    const spearImageMap: Record<string, string> = {
+      common: 'spear_common',       // 0-9
+      uncommon: 'spear_rare',       // 10-19
+      rare: 'spear_epic',           // 20-29
+      epic: 'spear_legendary',      // 30-39
+      legendary: 'spear_mythic',    // 40-49
+      mythic: 'c6',                 // 50-59
+      divine: 'c7',                 // 60-69
+      celestial: 'c8',              // 70-79
+      transcendent: 'c9',           // 80-89
+      godly: 'c10'                  // 90-100
+    };
+    return `/weapons/${spearImageMap[tier] || 'spear_common'}.png`;
+  }
+
+  // 도끼(axe)는 10단계 이미지 사용
+  if (type === WeaponType.AXE) {
+    const axeImageMap: Record<string, string> = {
+      common: 'axe_common',         // 0-9
+      uncommon: 'axe_rare',         // 10-19
+      rare: 'axe_epic',             // 20-29
+      epic: 'axe_legendary',        // 30-39
+      legendary: 'axe_mythic',      // 40-49
+      mythic: 'd6',                 // 50-59
+      divine: 'd7',                 // 60-69
+      celestial: 'd8',              // 70-79
+      transcendent: 'd9',           // 80-89
+      godly: 'd10'                  // 90-100
+    };
+    return `/weapons/${axeImageMap[tier] || 'axe_common'}.png`;
+  }
+
+  // 망치(hammer)는 10단계 이미지 사용
+  if (type === WeaponType.HAMMER) {
+    const hammerImageMap: Record<string, string> = {
+      common: 'hammer_common',      // 0-9
+      uncommon: 'hammer_rare',      // 10-19
+      rare: 'hammer_epic',          // 20-29
+      epic: 'hammer_legendary',     // 30-39
+      legendary: 'hammer_mythic',   // 40-49
+      mythic: 'h6',                 // 50-59
+      divine: 'h7',                 // 60-69
+      celestial: 'h8',              // 70-79
+      transcendent: 'h9',           // 80-89
+      godly: 'h10'                  // 90-100
+    };
+    return `/weapons/${hammerImageMap[tier] || 'hammer_common'}.png`;
+  }
+
+  // 다른 무기는 기존 이미지 재활용
+  const imageTier: Record<string, string> = {
+    common: 'common',
+    uncommon: 'rare',
+    rare: 'rare',
+    epic: 'epic',
+    legendary: 'legendary',
+    mythic: 'mythic',
+    divine: 'mythic',
+    celestial: 'mythic',
+    transcendent: 'mythic',
+    godly: 'mythic'
+  };
+  return `/weapons/${typeKey}_${imageTier[tier] || tier}.png`;
 };
 
-const TIER_STYLES = {
+const TIER_STYLES: Record<string, {
+  wrapper: string;
+  bgGradient: string;
+  iconColor: string;
+  accentColor: string;
+  glow: string;
+  particles: string;
+  badge: string;
+}> = {
   common: {
     wrapper: 'border-slate-700 bg-slate-900/80',
     bgGradient: 'from-slate-800 to-slate-900',
@@ -42,6 +143,15 @@ const TIER_STYLES = {
     glow: '',
     particles: 'bg-slate-500',
     badge: 'bg-slate-800 text-slate-300'
+  },
+  uncommon: {
+    wrapper: 'border-green-500/50 bg-slate-900/80 shadow-[0_0_15px_-5px_rgba(34,197,94,0.3)]',
+    bgGradient: 'from-green-900/30 via-slate-900 to-slate-900',
+    iconColor: 'text-green-400',
+    accentColor: 'text-green-500',
+    glow: 'shadow-green-500/20',
+    particles: 'bg-green-400',
+    badge: 'bg-green-900/80 text-green-200 border-green-500/30'
   },
   rare: {
     wrapper: 'border-blue-500/50 bg-slate-900/80 shadow-[0_0_20px_-5px_rgba(59,130,246,0.3)]',
@@ -62,22 +172,58 @@ const TIER_STYLES = {
     badge: 'bg-purple-900/80 text-purple-200 border-purple-500/30'
   },
   legendary: {
-    wrapper: 'border-yellow-500/70 bg-slate-900/80 shadow-[0_0_40px_-5px_rgba(234,179,8,0.5)]',
-    bgGradient: 'from-yellow-900/40 via-slate-900 to-amber-950/20',
-    iconColor: 'text-yellow-300',
-    accentColor: 'text-yellow-400',
-    glow: 'shadow-yellow-500/40',
-    particles: 'bg-yellow-300',
-    badge: 'bg-yellow-900/80 text-yellow-100 border-yellow-500/50'
+    wrapper: 'border-orange-500/70 bg-slate-900/80 shadow-[0_0_40px_-5px_rgba(249,115,22,0.5)]',
+    bgGradient: 'from-orange-900/40 via-slate-900 to-amber-950/20',
+    iconColor: 'text-orange-300',
+    accentColor: 'text-orange-400',
+    glow: 'shadow-orange-500/40',
+    particles: 'bg-orange-300',
+    badge: 'bg-orange-900/80 text-orange-100 border-orange-500/50'
   },
   mythic: {
-    wrapper: 'border-red-600/80 bg-slate-900/80 shadow-[0_0_50px_-10px_rgba(220,38,38,0.6)] animate-pulse',
+    wrapper: 'border-red-600/80 bg-slate-900/80 shadow-[0_0_50px_-10px_rgba(220,38,38,0.6)]',
     bgGradient: 'from-red-900/50 via-slate-900 to-red-950/30',
     iconColor: 'text-red-400',
     accentColor: 'text-red-500',
     glow: 'shadow-red-600/50',
     particles: 'bg-red-500',
     badge: 'bg-red-900 text-white border-red-500'
+  },
+  divine: {
+    wrapper: 'border-yellow-400/80 bg-slate-900/80 shadow-[0_0_60px_-10px_rgba(250,204,21,0.7)]',
+    bgGradient: 'from-yellow-800/50 via-amber-900/30 to-slate-900',
+    iconColor: 'text-yellow-300',
+    accentColor: 'text-yellow-400',
+    glow: 'shadow-yellow-400/60',
+    particles: 'bg-yellow-400',
+    badge: 'bg-yellow-800 text-yellow-100 border-yellow-400/70'
+  },
+  celestial: {
+    wrapper: 'border-cyan-400/80 bg-slate-900/80 shadow-[0_0_70px_-10px_rgba(34,211,238,0.7)]',
+    bgGradient: 'from-cyan-800/50 via-sky-900/30 to-yellow-900/20',
+    iconColor: 'text-cyan-300',
+    accentColor: 'text-cyan-400',
+    glow: 'shadow-cyan-400/60',
+    particles: 'bg-cyan-400',
+    badge: 'bg-gradient-to-r from-cyan-800 to-yellow-800 text-white border-cyan-400/70'
+  },
+  transcendent: {
+    wrapper: 'border-pink-400/80 bg-slate-900/80 shadow-[0_0_80px_-10px_rgba(236,72,153,0.7)] animate-pulse',
+    bgGradient: 'from-pink-800/50 via-purple-900/30 to-cyan-900/20',
+    iconColor: 'text-pink-300',
+    accentColor: 'text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400',
+    glow: 'shadow-pink-400/60',
+    particles: 'bg-pink-400',
+    badge: 'bg-gradient-to-r from-pink-700 via-purple-700 to-cyan-700 text-white border-pink-400/70'
+  },
+  godly: {
+    wrapper: 'border-2 border-transparent bg-slate-900/90 shadow-[0_0_120px_-10px_rgba(255,215,0,0.9),0_0_60px_-5px_rgba(255,255,255,0.8)] animate-pulse [background:linear-gradient(#0f172a,#0f172a)_padding-box,linear-gradient(45deg,#ffd700,#fff,#ffd700,#fff,#ffd700)_border-box]',
+    bgGradient: 'from-yellow-500/40 via-white/30 to-amber-500/40',
+    iconColor: 'text-yellow-200 drop-shadow-[0_0_10px_rgba(255,215,0,1)]',
+    accentColor: 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-white to-yellow-300 drop-shadow-[0_0_20px_rgba(255,215,0,0.8)]',
+    glow: 'shadow-[0_0_30px_rgba(255,215,0,0.8)]',
+    particles: 'bg-gradient-to-r from-yellow-300 via-white to-yellow-300',
+    badge: 'bg-gradient-to-r from-yellow-500 via-white to-yellow-500 text-slate-900 border-2 border-yellow-300 font-black shadow-[0_0_20px_rgba(255,215,0,0.8)]'
   }
 };
 

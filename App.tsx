@@ -32,7 +32,8 @@ import {
   Camera,
   HelpCircle,
   X,
-  EyeOff
+  EyeOff,
+  Settings
 } from 'lucide-react';
 import {
   Weapon,
@@ -75,7 +76,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 // --- Constants ---
 const INITIAL_STATS: PlayerStats = {
   username: '',
-  gold: 300000,
+  gold: 500000, // 초기 골드 상향 (레벨 100 시스템)
   scrolls: 5,
   wins: 0,
   losses: 0
@@ -193,22 +194,37 @@ const getElementEnhanceConfig = (level: number): EnhancementConfig => {
 // Returns success, maintain, destroy chances based on level
 // 일주일 내 +20 달성 가능하도록 확률 상향 조정
 const getEnhanceConfig = (level: number): EnhancementConfig => {
-  if (level === 0) {
-    return { cost: 100, successChance: 0.95, maintainChance: 0.05, destroyChance: 0 };
-  } else if (level >= 1 && level < 5) {
-    return { cost: 200 * (level + 1), successChance: 0.90, maintainChance: 0.10, destroyChance: 0 };
-  } else if (level >= 5 && level < 8) {
-    return { cost: 500 * (level + 1), successChance: 0.80, maintainChance: 0.18, destroyChance: 0.02 };
-  } else if (level >= 8 && level < 10) {
-    return { cost: 1000 * (level + 1), successChance: 0.65, maintainChance: 0.30, destroyChance: 0.05 };
-  } else if (level >= 10 && level < 13) {
-    return { cost: 3000 * (level + 1), successChance: 0.50, maintainChance: 0.40, destroyChance: 0.10 };
-  } else if (level >= 13 && level < 16) {
-    return { cost: 8000 * (level + 1), successChance: 0.40, maintainChance: 0.45, destroyChance: 0.15 };
-  } else if (level >= 16 && level < 19) {
-    return { cost: 20000 * (level + 1), successChance: 0.30, maintainChance: 0.50, destroyChance: 0.20 };
+  // 레벨 100 시스템 - 10구간으로 확장 (유지 확률 상향, 파괴 확률 하향)
+  if (level >= 0 && level < 10) {
+    // 0-9: 안전 구간
+    return { cost: 100 * (level + 1), successChance: 0.95, maintainChance: 0.05, destroyChance: 0 };
+  } else if (level >= 10 && level < 20) {
+    // 10-19: 파괴 시작
+    return { cost: 300 * (level + 1), successChance: 0.85, maintainChance: 0.145, destroyChance: 0.005 };
+  } else if (level >= 20 && level < 30) {
+    // 20-29: 본격 도전
+    return { cost: 800 * (level + 1), successChance: 0.70, maintainChance: 0.27, destroyChance: 0.03 };
+  } else if (level >= 30 && level < 40) {
+    // 30-39: 중급 구간
+    return { cost: 1500 * (level + 1), successChance: 0.55, maintainChance: 0.38, destroyChance: 0.07 };
+  } else if (level >= 40 && level < 50) {
+    // 40-49: 상급 구간
+    return { cost: 3000 * (level + 1), successChance: 0.45, maintainChance: 0.45, destroyChance: 0.10 };
+  } else if (level >= 50 && level < 60) {
+    // 50-59: 고급 구간
+    return { cost: 6000 * (level + 1), successChance: 0.35, maintainChance: 0.50, destroyChance: 0.15 };
+  } else if (level >= 60 && level < 70) {
+    // 60-69: 최상급
+    return { cost: 12000 * (level + 1), successChance: 0.28, maintainChance: 0.52, destroyChance: 0.20 };
+  } else if (level >= 70 && level < 80) {
+    // 70-79: 극한
+    return { cost: 25000 * (level + 1), successChance: 0.22, maintainChance: 0.53, destroyChance: 0.25 };
+  } else if (level >= 80 && level < 90) {
+    // 80-89: 초극한
+    return { cost: 50000 * (level + 1), successChance: 0.18, maintainChance: 0.52, destroyChance: 0.30 };
   } else {
-    return { cost: 50000 * (level + 1), successChance: 0.20, maintainChance: 0.55, destroyChance: 0.25 };
+    // 90-100: 신의 영역
+    return { cost: 100000 * (level + 1), successChance: 0.15, maintainChance: 0.50, destroyChance: 0.35 };
   }
 };
 
@@ -709,7 +725,7 @@ export default function App() {
     return saved ? parseInt(saved, 10) : 0;
   });
   const ATTENDANCE_INTERVAL = 4 * 60 * 60 * 1000; // 4시간 (밀리초)
-  const ATTENDANCE_REWARD = 500000; // 50만 골드
+  const ATTENDANCE_REWARD = 1000000; // 100만 골드 (레벨 100 시스템)
 
   // 치트키 State (강화-강화-상점-상점-강화 순서로 입력 시 90% 성공률)
   const cheatSequenceRef = React.useRef<string[]>([]);
@@ -1146,7 +1162,7 @@ export default function App() {
   // 아이디를 이메일 형식으로 변환
   const idToEmail = (id: string) => `${id.toLowerCase()}@knight.game`;
 
-  const REFERRAL_BONUS = 200000; // 추천인 보너스 골드
+  const REFERRAL_BONUS = 500000; // 추천인 보너스 골드 (레벨 100 시스템)
 
   const handleRegister = async () => {
     if (!firebaseConfigured) {
@@ -1405,49 +1421,81 @@ export default function App() {
       });
 
     } else {
-      // 강화 파괴
+      // 강화 파괴 - 10레벨 하락 시스템
       resultType = 'destroy';
-      const refundAmount = Math.floor(newTotalCost * 0.2);
+      const newLevel = Math.max(0, prevLevel - 10); // 10레벨 하락 (최소 0)
+      const refundAmount = Math.floor(cost * 0.1); // 강화 비용의 10% 환급
 
-      flavorData = await generateEnhancementFlavor(weapon, false, 0);
+      flavorData = await generateEnhancementFlavor(weapon, false, newLevel);
 
       // 골드 환급
       setStats(prev => ({ ...prev, gold: prev.gold + refundAmount }));
 
-      // 무기 초기화
       const destroyedWeaponName = weapon.name;
-      const baseName = {
-        [WeaponType.SWORD]: '녹슨 검',
-        [WeaponType.AXE]: '무딘 도끼',
-        [WeaponType.HAMMER]: '금이 간 망치',
-        [WeaponType.SPEAR]: '휘어진 창'
-      }[weapon.type];
 
-      updatedWeapon = {
-        id: `weapon_${Date.now()}`,
-        type: weapon.type,
-        name: baseName,
-        level: 0,
-        baseDamage: weapon.type === WeaponType.HAMMER ? 15 : weapon.type === WeaponType.AXE ? 12 : 10,
-        description: '파괴된 무기의 잔해로 새로 만든 무기입니다.',
-        totalEnhanceCost: 0
-      };
-      setWeapon(updatedWeapon);
-      addLog('enhancement', `💥 강화 파괴! [+${prevLevel}] ${destroyedWeaponName}`, "장비가 파괴되었습니다.", false);
+      if (newLevel > 0) {
+        // 레벨이 남아있으면 무기 유지, 레벨만 하락
+        const newFlavorData = await generateEnhancementFlavor(weapon, false, newLevel);
+        updatedWeapon = {
+          ...weapon,
+          level: newLevel,
+          name: newFlavorData.weaponName,
+          description: newFlavorData.description,
+          totalEnhanceCost: Math.floor(weapon.totalEnhanceCost * (newLevel / prevLevel))
+        };
+        setWeapon(updatedWeapon);
+        addLog('enhancement', `💥 강화 파괴! [+${prevLevel}] → [+${newLevel}]`, `10레벨 하락! 장비가 손상되었습니다.`, false);
 
-      const remainingGold = stats.gold - cost + refundAmount;
-      sendGlobalChatMessage('enhancement',
-        `【 💥 강화 파괴 💥 】\n\n` +
-        `🔨 대장장이: "${flavorData.quote}"\n\n` +
-        `💸 사용 골드: -${cost.toLocaleString()}G\n` +
-        `💰 남은 골드: ${remainingGold.toLocaleString()}G\n\n` +
-        `"[+${prevLevel}] ${destroyedWeaponName}" 산산조각 나서, "[+0] ${baseName}"이 지급되었습니다.\n` +
-        `💵 환급 골드: +${refundAmount.toLocaleString()}G (총 강화비용의 20%)`, {
-        success: false,
-        weaponLevel: 0,
-        weaponName: baseName,
-        goldChange: -cost + refundAmount
-      });
+        const remainingGold = stats.gold - cost + refundAmount;
+        sendGlobalChatMessage('enhancement',
+          `【 💥 강화 파괴 💥 】\n\n` +
+          `🔨 대장장이: "${flavorData.quote}"\n\n` +
+          `💸 사용 골드: -${cost.toLocaleString()}G\n` +
+          `💰 남은 골드: ${remainingGold.toLocaleString()}G\n\n` +
+          `"[+${prevLevel}] ${destroyedWeaponName}" → "[+${newLevel}] ${newFlavorData.weaponName}"\n` +
+          `📉 10레벨 하락!\n` +
+          `💵 환급 골드: +${refundAmount.toLocaleString()}G`, {
+          success: false,
+          weaponLevel: newLevel,
+          weaponName: newFlavorData.weaponName,
+          goldChange: -cost + refundAmount
+        });
+      } else {
+        // 레벨 0이 되면 완전 초기화
+        const baseName = {
+          [WeaponType.SWORD]: '녹슨 검',
+          [WeaponType.AXE]: '무딘 도끼',
+          [WeaponType.HAMMER]: '금이 간 망치',
+          [WeaponType.SPEAR]: '휘어진 창'
+        }[weapon.type];
+
+        updatedWeapon = {
+          id: `weapon_${Date.now()}`,
+          type: weapon.type,
+          name: baseName,
+          level: 0,
+          baseDamage: weapon.type === WeaponType.HAMMER ? 15 : weapon.type === WeaponType.AXE ? 12 : 10,
+          description: '파괴된 무기의 잔해로 새로 만든 무기입니다.',
+          totalEnhanceCost: 0
+        };
+        setWeapon(updatedWeapon);
+        addLog('enhancement', `💥 강화 파괴! [+${prevLevel}] ${destroyedWeaponName}`, "장비가 완전히 파괴되었습니다.", false);
+
+        const remainingGold = stats.gold - cost + refundAmount;
+        sendGlobalChatMessage('enhancement',
+          `【 💥 강화 파괴 💥 】\n\n` +
+          `🔨 대장장이: "${flavorData.quote}"\n\n` +
+          `💸 사용 골드: -${cost.toLocaleString()}G\n` +
+          `💰 남은 골드: ${remainingGold.toLocaleString()}G\n\n` +
+          `"[+${prevLevel}] ${destroyedWeaponName}" 완전 파괴!\n` +
+          `"[+0] ${baseName}"이 지급되었습니다.\n` +
+          `💵 환급 골드: +${refundAmount.toLocaleString()}G`, {
+          success: false,
+          weaponLevel: 0,
+          weaponName: baseName,
+          goldChange: -cost + refundAmount
+        });
+      }
     }
 
     setShowEnhanceResult({
@@ -1457,8 +1505,9 @@ export default function App() {
     });
     setIsEnhancing(false);
 
-    // 강화 후 채팅 스크롤 하단으로
-    setTimeout(() => scrollChatToBottom(true), 500);
+    // 강화 후 정보창으로 이동하고 채팅 스크롤 하단으로
+    setView(GameView.HOME);
+    setTimeout(() => scrollChatToBottom(true), 300);
   };
 
   const handleBattle = async (opponent?: { profile: UserProfile, gameData: any }) => {
@@ -1525,9 +1574,9 @@ export default function App() {
     // 승률 범위 제한 (20% ~ 80%) - 항상 역전 가능성 유지
     winChance = Math.max(0.20, Math.min(0.80, winChance));
 
-    // 🔥 불굴의 투지: 저레벨이 고레벨 상대 시 5% 확률로 발동 (레벨 차이 3~5)
+    // 🔥 불굴의 투지: 저레벨이 고레벨 상대 시 5% 확률로 발동 (레벨 차이 10 이상)
     const levelDiff = opponentWeapon.level - weapon.level;
-    const isUnderdog = levelDiff >= 3 && levelDiff <= 5; // 레벨 차이 3~5일 때만
+    const isUnderdog = levelDiff >= 10; // 레벨 차이 10 이상일 때
     const indomitableRoll = Math.random();
     const isIndomitableSpirit = isUnderdog && indomitableRoll < 0.05; // 5% 확률
 
@@ -1535,8 +1584,10 @@ export default function App() {
     const normalWin = Math.random() < winChance;
     const isWin = isIndomitableSpirit || normalWin;
 
-    // 보상 계산
-    const baseReward = 100 + (opponentWeapon.level * 20);
+    // 전투 보상 대폭 상향 - 레벨 100 시스템
+    // 기본 보상 = 5,000 + (상대 레벨 × 2,000) + (상대 레벨² × 50)
+    const oppLevel = opponentWeapon.level;
+    const baseReward = 5000 + (oppLevel * 2000) + (oppLevel * oppLevel * 50);
     const opponentGold = opponent.gameData.stats?.gold || 0;
 
     let reward: number;
@@ -1545,14 +1596,21 @@ export default function App() {
     if (isIndomitableSpirit) {
       // 불굴의 투지 발동: 상대 골드의 50% 약탈!
       lootedGold = Math.floor(opponentGold * 0.5);
-      reward = baseReward + lootedGold;
+      reward = Math.floor(baseReward * 2.0) + lootedGold;
     } else if (isWin) {
-      // 일반 승리: 언더독 보너스 적용
-      const underDogBonus = (levelDiff > 0) ? (1 + (levelDiff * 0.5)) : 1;
-      reward = Math.floor(baseReward * underDogBonus);
+      // 승리: 기본 보상 × 2.0 + 언더독 보너스
+      let underDogBonus = 1.0;
+      if (levelDiff >= 30) {
+        underDogBonus = 3.0; // +200%
+      } else if (levelDiff >= 20) {
+        underDogBonus = 2.0; // +100%
+      } else if (levelDiff >= 10) {
+        underDogBonus = 1.5; // +50%
+      }
+      reward = Math.floor(baseReward * 2.0 * underDogBonus);
     } else {
-      // 패배: 위로금
-      reward = Math.floor(baseReward * 0.2);
+      // 패배: 기본 보상 × 0.5 (위로금 상향)
+      reward = Math.floor(baseReward * 0.5);
     }
 
     setStats(prev => ({
@@ -2068,10 +2126,27 @@ export default function App() {
     const config = getEnhanceConfig(weapon.level);
     const canUseScroll = stats.scrolls > 0;
     const willUseScroll = useScrollForEnhance && canUseScroll;
+    const canAfford = stats.gold >= config.cost;
 
     return (
       <div className="space-y-4 flex flex-col animate-fade-in">
         <WeaponCard weapon={weapon} showStats={false} isEnhancing={isEnhancing} />
+
+        {/* 강화 버튼 */}
+        <button
+          onClick={handleEnhance}
+          disabled={isEnhancing || !canAfford}
+          className={`w-full relative overflow-hidden group py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3 transition-all shadow-xl ${
+            canAfford
+              ? 'bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 text-white active:scale-[0.98] shadow-purple-900/50 border border-purple-400/30'
+              : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+          } ${isEnhancing ? 'opacity-70' : ''}`}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+          {canAfford && <div className="absolute inset-0 opacity-0 group-hover:opacity-100 group-active:opacity-100 bg-white/10 transition-opacity" />}
+          <Hammer size={24} className={`relative z-10 ${isEnhancing ? 'animate-bounce' : ''}`} />
+          <span className="relative z-10">{isEnhancing ? '강화 중...' : `강화하기 (${config.cost.toLocaleString()}G)`}</span>
+        </button>
 
         {/* Interaction Area */}
         <div className="glass-panel p-5 rounded-3xl border-t border-white/10 relative overflow-hidden">
@@ -2140,7 +2215,7 @@ export default function App() {
           {config.destroyChance > 0 && (
             <div className="mt-3 flex items-center gap-3 text-sm text-rose-400 bg-rose-950/30 p-3 rounded-xl border border-rose-900/50">
               <AlertCircle size={18} className="shrink-0" />
-              <span>파괴 시 강화비용의 20%만 환급됩니다</span>
+              <span>파괴 시 10레벨 하락! (최소 0레벨)</span>
             </div>
           )}
         </div>
@@ -2584,7 +2659,15 @@ export default function App() {
               [WeaponType.HAMMER]: '망치',
               [WeaponType.SPEAR]: '창'
             };
-            const imagePath = `/weapons/${type.toLowerCase()}_mythic.png`;
+            // 모든 무기 최고 등급 이미지 사용
+            const getMainImagePath = () => {
+              if (type === WeaponType.SWORD) return '/weapons/s10.png';
+              if (type === WeaponType.SPEAR) return '/weapons/c10.png';
+              if (type === WeaponType.AXE) return '/weapons/d10.png';
+              if (type === WeaponType.HAMMER) return '/weapons/h10.png';
+              return `/weapons/${type.toLowerCase()}_mythic.png`;
+            };
+            const imagePath = getMainImagePath();
             const isSelected = showWeaponGuide === type;
             return (
               <button
@@ -2653,43 +2736,79 @@ export default function App() {
                 💡 무기 상성은 승률에 ±8% 영향을 줍니다
               </div>
 
-              {/* 무기 등급별 이미지 */}
+              {/* 무기 등급별 이미지 - 10단계 */}
               <div className="mt-4 pt-3 border-t border-slate-700/50">
-                <p className="text-xs text-slate-400 mb-3 text-center">등급별 외형</p>
-                <div className="space-y-3">
-                  {['common', 'rare', 'epic', 'legendary', 'mythic'].map((rarity) => {
+                <p className="text-xs text-slate-400 mb-3 text-center">등급별 외형 (레벨 100)</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'divine', 'celestial', 'transcendent', 'godly'].map((rarity) => {
                     const rarityNames: Record<string, string> = {
-                      common: '일반',
-                      rare: '희귀',
-                      epic: '영웅',
-                      legendary: '전설',
-                      mythic: '신화'
+                      common: '일반', uncommon: '고급', rare: '희귀', epic: '영웅', legendary: '전설',
+                      mythic: '신화', divine: '신성', celestial: '천상', transcendent: '초월', godly: '신급'
                     };
                     const rarityColors: Record<string, string> = {
                       common: 'text-slate-400 bg-slate-700/30 border-slate-600',
+                      uncommon: 'text-green-400 bg-green-900/20 border-green-700/50',
                       rare: 'text-blue-400 bg-blue-900/20 border-blue-700/50',
                       epic: 'text-purple-400 bg-purple-900/20 border-purple-700/50',
-                      legendary: 'text-yellow-400 bg-yellow-900/20 border-yellow-700/50',
-                      mythic: 'text-red-400 bg-red-900/20 border-red-700/50'
+                      legendary: 'text-orange-400 bg-orange-900/20 border-orange-700/50',
+                      mythic: 'text-red-400 bg-red-900/20 border-red-700/50',
+                      divine: 'text-yellow-300 bg-yellow-900/20 border-yellow-600/50',
+                      celestial: 'text-cyan-400 bg-cyan-900/20 border-cyan-700/50',
+                      transcendent: 'text-pink-400 bg-pink-900/20 border-pink-700/50',
+                      godly: 'text-yellow-200 bg-gradient-to-br from-yellow-900/40 via-amber-800/30 to-yellow-900/40 border-2 border-yellow-400 shadow-[0_0_20px_rgba(255,215,0,0.5)] animate-pulse'
+                    };
+                    const rarityLevels: Record<string, string> = {
+                      common: '0-9', uncommon: '10-19', rare: '20-29', epic: '30-39', legendary: '40-49',
+                      mythic: '50-59', divine: '60-69', celestial: '70-79', transcendent: '80-89', godly: '90-100'
+                    };
+                    // 모든 무기 10단계 이미지 사용
+                    const getGuideImagePath = () => {
+                      if (showWeaponGuide === WeaponType.SWORD) {
+                        const swordMap: Record<string, string> = {
+                          common: 'sword_common', uncommon: 'sword_rare', rare: 'sword_epic',
+                          epic: 'sword_legendary', legendary: 'sword_mythic', mythic: 's6',
+                          divine: 's7', celestial: 's8', transcendent: 's9', godly: 's10'
+                        };
+                        return `/weapons/${swordMap[rarity]}.png`;
+                      }
+                      if (showWeaponGuide === WeaponType.SPEAR) {
+                        const spearMap: Record<string, string> = {
+                          common: 'spear_common', uncommon: 'spear_rare', rare: 'spear_epic',
+                          epic: 'spear_legendary', legendary: 'spear_mythic', mythic: 'c6',
+                          divine: 'c7', celestial: 'c8', transcendent: 'c9', godly: 'c10'
+                        };
+                        return `/weapons/${spearMap[rarity]}.png`;
+                      }
+                      if (showWeaponGuide === WeaponType.AXE) {
+                        const axeMap: Record<string, string> = {
+                          common: 'axe_common', uncommon: 'axe_rare', rare: 'axe_epic',
+                          epic: 'axe_legendary', legendary: 'axe_mythic', mythic: 'd6',
+                          divine: 'd7', celestial: 'd8', transcendent: 'd9', godly: 'd10'
+                        };
+                        return `/weapons/${axeMap[rarity]}.png`;
+                      }
+                      if (showWeaponGuide === WeaponType.HAMMER) {
+                        const hammerMap: Record<string, string> = {
+                          common: 'hammer_common', uncommon: 'hammer_rare', rare: 'hammer_epic',
+                          epic: 'hammer_legendary', legendary: 'hammer_mythic', mythic: 'h6',
+                          divine: 'h7', celestial: 'h8', transcendent: 'h9', godly: 'h10'
+                        };
+                        return `/weapons/${hammerMap[rarity]}.png`;
+                      }
+                      return `/weapons/${showWeaponGuide!.toLowerCase()}_common.png`;
                     };
                     return (
-                      <div key={rarity} className={`p-3 rounded-2xl border ${rarityColors[rarity]}`}>
-                        <div className="w-full h-24 bg-slate-900/50 rounded-xl flex items-center justify-center mb-2">
+                      <div key={rarity} className={`p-2 rounded-xl border ${rarityColors[rarity]}`}>
+                        <div className="w-full h-16 bg-slate-900/50 rounded-lg flex items-center justify-center mb-1">
                           <img
-                            src={`/weapons/${showWeaponGuide!.toLowerCase()}_${rarity}.png`}
+                            src={getGuideImagePath()}
                             alt={rarityNames[rarity]}
-                            className="h-20 w-auto object-contain"
+                            className="h-14 w-auto object-contain"
                           />
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className={`font-bold text-sm ${rarityColors[rarity].split(' ')[0]}`}>{rarityNames[rarity]}</span>
-                          <span className="text-xs text-slate-500">
-                            {rarity === 'common' && '+0 ~ +3'}
-                            {rarity === 'rare' && '+4 ~ +7'}
-                            {rarity === 'epic' && '+8 ~ +11'}
-                            {rarity === 'legendary' && '+12 ~ +16'}
-                            {rarity === 'mythic' && '+17 ~ +20'}
-                          </span>
+                          <span className={`font-bold text-xs ${rarityColors[rarity].split(' ')[0]}`}>{rarityNames[rarity]}</span>
+                          <span className="text-[10px] text-slate-500">+{rarityLevels[rarity]}</span>
                         </div>
                       </div>
                     );
@@ -3299,80 +3418,46 @@ export default function App() {
 
       {/* Bottom Fixed Section */}
       <div className={`flex-shrink-0 bg-slate-950/95 backdrop-blur-sm border-t border-white/10 ${isFrame ? '' : ''}`}>
-        {/* Action Buttons */}
-        <div className="px-3 py-2">
-          <div className="flex gap-1.5">
-            {/* 강화 버튼 */}
-            <button
-              onClick={handleEnhance}
-              disabled={isEnhancing}
-              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all disabled:opacity-50 shadow-lg shadow-purple-900/40 border border-purple-400/20"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
-              <Hammer size={18} className="relative z-10 drop-shadow-md" />
-              <span className="relative z-10 drop-shadow-md">강화</span>
-            </button>
-            {/* 속성 버튼 */}
-            <button
-              onClick={() => setView(GameView.ELEMENT)}
-              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-lg shadow-blue-900/40 border border-cyan-400/20"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
-              <Sparkles size={18} className="relative z-10 drop-shadow-md" />
-              <span className="relative z-10 drop-shadow-md">속성</span>
-            </button>
-            {/* 전투 버튼 */}
-            <button
-              onClick={() => setView(GameView.BATTLE)}
-              className="flex-1 relative overflow-hidden group bg-gradient-to-br from-rose-500 via-red-600 to-orange-600 text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-all shadow-lg shadow-red-900/40 border border-rose-400/20"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
-              <Swords size={18} className="relative z-10 drop-shadow-md" />
-              <span className="relative z-10 drop-shadow-md">전투</span>
-            </button>
-            {/* 자랑하기 버튼 */}
-            <button
-              onClick={handleShowOff}
-              className="relative overflow-hidden group bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 text-white px-4 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center active:scale-[0.97] transition-all shadow-lg shadow-amber-900/40 border border-yellow-400/30"
-              title="자랑하기"
-            >
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-              <div className="absolute inset-0 opacity-0 group-active:opacity-100 bg-white/10 transition-opacity" />
-              <Trophy size={18} className="relative z-10 drop-shadow-md" />
-            </button>
-          </div>
-        </div>
-
         {/* Chat Input */}
         <div className="px-4 py-2 border-t border-white/5">
           <ChatInput onSubmit={handleChatSubmit} userList={allUsernames} currentUsername={stats.username} />
         </div>
 
         {/* Navigation Bar */}
-        <nav className="flex justify-around items-center h-16 px-2 border-t border-white/10 bg-slate-900/95 pb-safe">
+        <nav className="flex justify-around items-center h-16 px-1 border-t border-white/10 bg-gradient-to-t from-slate-950 to-slate-900/95 pb-safe">
           {[
-            { id: GameView.HOME, icon: UserIcon, label: '정보' },
-            { id: GameView.SHOP, icon: ShoppingBag, label: '상점' },
-            { id: GameView.ENHANCE, icon: Hammer, label: '강화' },
-            { id: GameView.ELEMENT, icon: Sparkles, label: '속성' },
-            { id: GameView.BATTLE, icon: Sword, label: '전투' },
-            { id: GameView.PROFILE, icon: Lock, label: '설정' },
+            { id: GameView.HOME, icon: UserIcon, label: '정보', color: 'blue' },
+            { id: GameView.SHOP, icon: ShoppingBag, label: '상점', color: 'emerald' },
+            { id: GameView.ENHANCE, icon: Hammer, label: '강화', color: 'purple' },
+            { id: GameView.ELEMENT, icon: Sparkles, label: '속성', color: 'cyan' },
+            { id: GameView.BATTLE, icon: Swords, label: '전투', color: 'rose' },
+            { id: GameView.PROFILE, icon: Settings, label: '설정', color: 'slate' },
           ].map((item) => {
             const isActive = view === item.id;
+            const colorMap: Record<string, { active: string; glow: string }> = {
+              blue: { active: 'text-blue-400', glow: 'shadow-blue-500/50' },
+              emerald: { active: 'text-emerald-400', glow: 'shadow-emerald-500/50' },
+              purple: { active: 'text-purple-400', glow: 'shadow-purple-500/50' },
+              cyan: { active: 'text-cyan-400', glow: 'shadow-cyan-500/50' },
+              rose: { active: 'text-rose-400', glow: 'shadow-rose-500/50' },
+              slate: { active: 'text-slate-300', glow: 'shadow-slate-500/30' },
+            };
+            const colors = colorMap[item.color];
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`relative flex flex-col items-center justify-center min-w-[72px] h-14 rounded-2xl transition-all duration-200 active:scale-95 ${isActive
-                  ? 'text-yellow-400 bg-yellow-500/10'
-                  : 'text-slate-500 active:text-slate-300 active:bg-slate-800/50'
-                  }`}
+                className={`relative flex flex-col items-center justify-center flex-1 h-14 rounded-xl transition-all duration-200 active:scale-95 ${
+                  isActive
+                    ? `${colors.active} bg-white/5`
+                    : 'text-slate-500 hover:text-slate-400 active:bg-slate-800/50'
+                }`}
               >
-                <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]' : ''} />
-                <span className={`text-[10px] font-semibold mt-0.5 ${isActive ? 'text-yellow-400' : 'text-slate-500'}`}>{item.label}</span>
+                {isActive && (
+                  <div className={`absolute -top-0.5 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-current shadow-lg ${colors.glow}`} />
+                )}
+                <item.icon size={20} strokeWidth={isActive ? 2.5 : 1.8} className={isActive ? `drop-shadow-lg ${colors.glow}` : ''} />
+                <span className={`text-[10px] font-medium mt-1 ${isActive ? colors.active : ''}`}>{item.label}</span>
               </button>
             );
           })}
